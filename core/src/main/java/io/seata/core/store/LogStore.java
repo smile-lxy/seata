@@ -26,6 +26,7 @@ import java.util.List;
 public interface LogStore {
 
     /**
+     * 查询全局事务信息
      * Query global transaction do global transaction do.
      *
      * @param xid the xid
@@ -34,6 +35,7 @@ public interface LogStore {
     GlobalTransactionDO queryGlobalTransactionDO(String xid);
 
     /**
+     * 查询全局事务信息
      * Query global transaction do global transaction do.
      *
      * @param transactionId the transaction id
@@ -42,6 +44,7 @@ public interface LogStore {
     GlobalTransactionDO queryGlobalTransactionDO(long transactionId);
 
     /**
+     * 查询全局事务列表
      * Query global transaction do list.
      *
      * @param status the status
@@ -51,6 +54,7 @@ public interface LogStore {
     List<GlobalTransactionDO> queryGlobalTransactionDO(int[] status, int limit);
 
     /**
+     * 新增全局事务记录
      * Insert global transaction do boolean.
      *
      * @param globalTransactionDO the global transaction do
@@ -59,6 +63,7 @@ public interface LogStore {
     boolean insertGlobalTransactionDO(GlobalTransactionDO globalTransactionDO);
 
     /**
+     * 修改全局事务状态
      * Update global transaction do boolean.
      *
      * @param globalTransactionDO the global transaction do
@@ -67,6 +72,7 @@ public interface LogStore {
     boolean updateGlobalTransactionDO(GlobalTransactionDO globalTransactionDO);
 
     /**
+     * 删除全局事务记录
      * Delete global transaction do boolean.
      *
      * @param globalTransactionDO the global transaction do
@@ -75,6 +81,7 @@ public interface LogStore {
     boolean deleteGlobalTransactionDO(GlobalTransactionDO globalTransactionDO);
 
     /**
+     * 查询Branch事务列表
      * Query branch transaction do list.
      *
      * @param xid the xid
@@ -83,6 +90,7 @@ public interface LogStore {
     List<BranchTransactionDO> queryBranchTransactionDO(String xid);
 
     /**
+     * 查询Branch事务列表
      * Query branch transaction do list.
      *
      * @param xids the xid list
@@ -91,6 +99,7 @@ public interface LogStore {
     List<BranchTransactionDO> queryBranchTransactionDO(List<String> xids);
 
     /**
+     * 新增Branch事务记录
      * Insert branch transaction do boolean.
      *
      * @param branchTransactionDO the branch transaction do
@@ -99,6 +108,7 @@ public interface LogStore {
     boolean insertBranchTransactionDO(BranchTransactionDO branchTransactionDO);
 
     /**
+     * 修改Branch事务状态
      * Update branch transaction do boolean.
      *
      * @param branchTransactionDO the branch transaction do
@@ -107,6 +117,7 @@ public interface LogStore {
     boolean updateBranchTransactionDO(BranchTransactionDO branchTransactionDO);
 
     /**
+     * 删除Branch事务记录
      * Delete branch transaction do boolean.
      *
      * @param branchTransactionDO the branch transaction do

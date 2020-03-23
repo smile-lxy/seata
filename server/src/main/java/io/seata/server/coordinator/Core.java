@@ -27,10 +27,11 @@ import io.seata.server.session.GlobalSession;
 public interface Core extends TransactionCoordinatorInbound, TransactionCoordinatorOutbound {
 
     /**
+     * 执行全局事务提交
      * Do global commit.
      *
-     * @param globalSession the global session
-     * @param retrying      the retrying
+     * @param globalSession the global session 全局事务
+     * @param retrying      the retrying 该事务是重试中
      * @return is global commit.
      * @throws TransactionException the transaction exception
      */

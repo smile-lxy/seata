@@ -112,8 +112,10 @@ public class AsyncWorker implements ResourceManagerInbound {
     @Override
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId, String resourceId,
                                      String applicationData) throws TransactionException {
+        // 添加至消息队列中, 后续定时任务批量处理(添加失败返回false)
         if (!ASYNC_COMMIT_BUFFER.offer(new Phase2Context(branchType, xid, branchId, resourceId, applicationData))) {
-            LOGGER.warn("Async commit buffer is FULL. Rejected branch [{}/{}] will be handled by housekeeping later.", branchId, xid);
+            LOGGER.warn("Async commit buffer is FULL. Rejected branch [{}/{}] will be handled by housekeeping later.",
+                branchId, xid);
         }
         return BranchStatus.PhaseTwo_Committed;
     }
@@ -124,9 +126,10 @@ public class AsyncWorker implements ResourceManagerInbound {
     public synchronized void init() {
         LOGGER.info("Async Commit Buffer Limit: {}", ASYNC_COMMIT_BUFFER_LIMIT);
         ScheduledExecutorService timerExecutor = new ScheduledThreadPoolExecutor(1, new NamedThreadFactory("AsyncWorker", 1, true));
+        // 定时任务
         timerExecutor.scheduleAtFixedRate(() -> {
             try {
-
+                // 定时执行Branch提交
                 doBranchCommits();
 
             } catch (Throwable e) {
@@ -138,13 +141,16 @@ public class AsyncWorker implements ResourceManagerInbound {
 
     private void doBranchCommits() {
         if (ASYNC_COMMIT_BUFFER.isEmpty()) {
+            // 队列为空, 直接返回
             return;
         }
 
         Map<String, List<Phase2Context>> mappedContexts = new HashMap<>(DEFAULT_RESOURCE_SIZE);
         while (!ASYNC_COMMIT_BUFFER.isEmpty()) {
+            // 将目前缓存里数据吐出来, List式批量操作
             Phase2Context commitContext = ASYNC_COMMIT_BUFFER.poll();
-            List<Phase2Context> contextsGroupedByResourceId = mappedContexts.computeIfAbsent(commitContext.resourceId, k -> new ArrayList<>());
+            List<Phase2Context> contextsGroupedByResourceId = mappedContexts.computeIfAbsent(commitContext.resourceId,
+                k -> new ArrayList<>());
             contextsGroupedByResourceId.add(commitContext);
         }
 
@@ -153,12 +159,15 @@ public class AsyncWorker implements ResourceManagerInbound {
             DataSourceProxy dataSourceProxy;
             try {
                 try {
+                    // 数据源管理器
                     DataSourceManager resourceManager = (DataSourceManager) DefaultResourceManager.get()
                         .getResourceManager(BranchType.AT);
+                    // 数据源代理
                     dataSourceProxy = resourceManager.get(entry.getKey());
                     if (dataSourceProxy == null) {
                         throw new ShouldNeverHappenException("Failed to find resource on " + entry.getKey());
                     }
+                    // 原始数据源连接
                     conn = dataSourceProxy.getPlainConnection();
                 } catch (SQLException sqle) {
                     LOGGER.warn("Failed to get connection for async committing on " + entry.getKey(), sqle);
@@ -172,34 +181,41 @@ public class AsyncWorker implements ResourceManagerInbound {
                     branchIds.add(commitContext.branchId);
                     int maxSize = Math.max(xids.size(), branchIds.size());
                     if (maxSize == UNDOLOG_DELETE_LIMIT_SIZE) {
+                        // 到批量删除阈值, 批量删除
                         try {
-                            UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType()).batchDeleteUndoLog(
-                                xids, branchIds, conn);
+                            // 获取对应Undo log管理器, 批量删除Undo log
+                            UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType())
+                                .batchDeleteUndoLog(xids, branchIds, conn);
                         } catch (Exception ex) {
                             LOGGER.warn("Failed to batch delete undo log [" + branchIds + "/" + xids + "]", ex);
                         }
+                        // 资源清理, 方便GC回收
                         xids.clear();
                         branchIds.clear();
                     }
                 }
 
                 if (CollectionUtils.isEmpty(xids) || CollectionUtils.isEmpty(branchIds)) {
+                    // 如果数据集合为空, 返回
                     return;
                 }
 
                 try {
-                    UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType()).batchDeleteUndoLog(xids,
-                        branchIds, conn);
+                    // 最后一次再清掉不满阈值的数据
+                    UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType())
+                        .batchDeleteUndoLog(xids, branchIds, conn);
                 } catch (Exception ex) {
                     LOGGER.warn("Failed to batch delete undo log [" + branchIds + "/" + xids + "]", ex);
                 }
 
                 if (!conn.getAutoCommit()) {
+                    // 不是自动提交的, 提交事务
                     conn.commit();
                 }
             } catch (Throwable e) {
                 LOGGER.error(e.getMessage(), e);
                 try {
+                    // 出现异常, 回滚事务
                     conn.rollback();
                 } catch (SQLException rollbackEx) {
                     LOGGER.warn("Failed to rollback JDBC resource while deleting undo_log ", rollbackEx);
@@ -207,6 +223,7 @@ public class AsyncWorker implements ResourceManagerInbound {
             } finally {
                 if (conn != null) {
                     try {
+                        // 存在连接, 关闭
                         conn.close();
                     } catch (SQLException closeEx) {
                         LOGGER.warn("Failed to close JDBC resource while deleting undo_log ", closeEx);

@@ -38,5 +38,9 @@ public interface Registry {
 
     Timer getTimer(Id id);
 
+    /**
+     * 获取仪表数据
+     * @return
+     */
     Iterable<Measurement> measure();
 }

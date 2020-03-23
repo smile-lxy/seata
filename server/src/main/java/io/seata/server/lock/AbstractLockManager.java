@@ -47,15 +47,16 @@ public abstract class AbstractLockManager implements LockManager {
         }
         String lockKey = branchSession.getLockKey();
         if (StringUtils.isNullOrEmpty(lockKey)) {
-            // no lock
+            // no lock 为空, 直接返回成功
             return true;
         }
-        // get locks of branch
+        // get locks of branch 构造锁集合
         List<RowLock> locks = collectRowLocks(branchSession);
         if (CollectionUtils.isEmpty(locks)) {
             // no lock
             return true;
         }
+        // 获取对应锁管理器, 加锁
         return getLocker(branchSession).acquireLock(locks);
     }
 
@@ -64,9 +65,9 @@ public abstract class AbstractLockManager implements LockManager {
         if (branchSession == null) {
             throw new IllegalArgumentException("branchSession can't be null for memory/file locker.");
         }
-        List<RowLock> locks = collectRowLocks(branchSession);
+        List<RowLock> locks = collectRowLocks(branchSession); // 收集Branch对应的行锁
         try {
-            return getLocker(branchSession).releaseLock(locks);
+            return getLocker(branchSession).releaseLock(locks); // 获取对应处理器, 释放行锁
         } catch (Exception t) {
             LOGGER.error("unLock error, branchSession:{}", branchSession, t);
             return false;
@@ -75,8 +76,9 @@ public abstract class AbstractLockManager implements LockManager {
 
     @Override
     public boolean isLockable(String xid, String resourceId, String lockKey) throws TransactionException {
-        List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid);
+        List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid); // 收集行锁
         try {
+            // 获取相应处理器, 判断是否已锁
             return getLocker().isLockable(locks);
         } catch (Exception t) {
             LOGGER.error("isLockable error, xid:{} resourceId:{}, lockKey:{}", xid, resourceId, lockKey, t);
@@ -128,6 +130,7 @@ public abstract class AbstractLockManager implements LockManager {
     }
 
     /**
+     * 收集行锁
      * Collect row locks list.
      *
      * @param lockKey    the lock key

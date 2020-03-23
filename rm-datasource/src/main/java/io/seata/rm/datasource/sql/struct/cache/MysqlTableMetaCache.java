@@ -48,12 +48,14 @@ public class MysqlTableMetaCache extends AbstractTableMetaCache {
 
     @Override
     protected String getCacheKey(Connection connection, String tableName, String resourceId) {
+        // jdbc:mysql://127.0.0.1:3306/seata
         StringBuilder cacheKey = new StringBuilder(resourceId);
         cacheKey.append(".");
         //remove single quote and separate it to catalogName and tableName
         String[] tableNameWithCatalog = tableName.replace("`", "").split("\\.");
         String defaultTableName = tableNameWithCatalog.length > 1 ? tableNameWithCatalog[1] : tableNameWithCatalog[0];
 
+        // 数据库元信息
         DatabaseMetaData databaseMetaData = null;
         try {
             databaseMetaData = connection.getMetaData();
@@ -63,7 +65,8 @@ public class MysqlTableMetaCache extends AbstractTableMetaCache {
         }
 
         try {
-            //prevent duplicated cache key
+            //prevent duplicated cache key 防止重复缓存秘钥
+            // 是否区分大小写
             if (databaseMetaData.supportsMixedCaseIdentifiers()) {
                 cacheKey.append(defaultTableName);
             } else {
@@ -74,14 +77,16 @@ public class MysqlTableMetaCache extends AbstractTableMetaCache {
             return cacheKey.append(defaultTableName).toString();
         }
 
+        // jdbc:mysql://127.0.0.1:3306/seata.${tableName}
         return cacheKey.toString();
     }
 
     @Override
     protected TableMeta fetchSchema(Connection connection, String tableName) throws SQLException {
+        // SQL语句 select * from ${tableName} limit 1
         String sql = "SELECT * FROM " + keywordChecker.checkAndReplace(tableName) + " LIMIT 1";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             ResultSet rs = stmt.executeQuery(sql)) { // 执行
             return resultSetMetaToSchema(rs.getMetaData(), connection.getMetaData());
         }
         catch (SQLException sqlEx) {

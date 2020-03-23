@@ -16,6 +16,7 @@
 package io.seata.sqlparser;
 
 /**
+ * SQL识别器
  * The interface Sql recognizer.
  *
  * @author sharajava
@@ -23,6 +24,7 @@ package io.seata.sqlparser;
 public interface SQLRecognizer {
 
     /**
+     * 获取SQL语句类型
      * Type of the SQL. INSERT/UPDATE/DELETE ...
      *
      * @return sql type
@@ -30,6 +32,7 @@ public interface SQLRecognizer {
     SQLType getSQLType();
 
     /**
+     * 获取表别名
      * TableRecords source related in the SQL, including alias if any.
      * SELECT id, name FROM user u WHERE ...
      * Alias should be 'u' for this SQL.
@@ -39,16 +42,18 @@ public interface SQLRecognizer {
     String getTableAlias();
 
     /**
+     * 获取表名
      * TableRecords name related in the SQL.
      * SELECT id, name FROM user u WHERE ...
      * TableRecords name should be 'user' for this SQL, without alias 'u'.
      *
      * @return table name.
-     * @see #getTableAlias() #getTableAlias()#getTableAlias()
+     * @see #getTableAlias()
      */
     String getTableName();
 
     /**
+     * 获取原始数据
      * Return the original SQL input by the upper application.
      *
      * @return The original SQL.

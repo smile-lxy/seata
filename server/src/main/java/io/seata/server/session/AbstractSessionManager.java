@@ -112,6 +112,9 @@ public abstract class AbstractSessionManager implements SessionManager, SessionL
         writeSession(LogOperation.BRANCH_REMOVE, branchSession);
     }
 
+    /**
+     * 当开启全局Session后
+     */
     @Override
     public void onBegin(GlobalSession globalSession) throws TransactionException {
         addGlobalSession(globalSession);
@@ -125,6 +128,7 @@ public abstract class AbstractSessionManager implements SessionManager, SessionL
     @Override
     public void onBranchStatusChange(GlobalSession globalSession, BranchSession branchSession, BranchStatus status)
         throws TransactionException {
+        // 更新分支Session状态
         updateBranchSessionStatus(branchSession, status);
     }
 
@@ -135,12 +139,13 @@ public abstract class AbstractSessionManager implements SessionManager, SessionL
 
     @Override
     public void onRemoveBranch(GlobalSession globalSession, BranchSession branchSession) throws TransactionException {
+        // 移除Branch事务记录
         removeBranchSession(globalSession, branchSession);
     }
 
     @Override
     public void onClose(GlobalSession globalSession) throws TransactionException {
-        globalSession.setActive(false);
+        globalSession.setActive(false); // 关闭事务激活状态
     }
 
     @Override

@@ -44,6 +44,7 @@ public class TransactionContextProviderFilter extends Filter {
 
     @Override
     public SofaResponse invoke(FilterInvoker filterInvoker, SofaRequest sofaRequest) throws SofaRpcException {
+        // 全局事务ID
         String xid = RootContext.getXID();
         String rpcXid = getRpcXid(sofaRequest);
         if (LOGGER.isDebugEnabled()) {
@@ -51,9 +52,11 @@ public class TransactionContextProviderFilter extends Filter {
         }
         boolean bind = false;
         if (xid != null) {
+            // RPC上下文附属参数
             RpcInternalContext.getContext().setAttachment(RootContext.KEY_XID, xid);
         } else {
             if (rpcXid != null) {
+                // 绑定事务
                 RootContext.bind(rpcXid);
                 bind = true;
                 if (LOGGER.isDebugEnabled()) {
@@ -62,9 +65,11 @@ public class TransactionContextProviderFilter extends Filter {
             }
         }
         try {
+            // 执行责任链
             return filterInvoker.invoke(sofaRequest);
         } finally {
             if (bind) {
+            // 解除全局事务
                 String unbindXid = RootContext.unbind();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("unbind[" + unbindXid + "] from RootContext");
@@ -74,6 +79,7 @@ public class TransactionContextProviderFilter extends Filter {
                         LOGGER.warn("xid in change during RPC from " + rpcXid + " to " + unbindXid);
                     }
                     if (unbindXid != null) {
+                        // 绑定事务
                         RootContext.bind(unbindXid);
                         if (LOGGER.isWarnEnabled()) {
                             LOGGER.warn("bind [" + unbindXid + "] back to RootContext");
@@ -85,6 +91,7 @@ public class TransactionContextProviderFilter extends Filter {
     }
 
     /**
+     * 获取RPC事务ID
      * get rpc xid
      * @return
      */

@@ -31,6 +31,7 @@ public interface Resource {
     String getResourceGroupId();
 
     /**
+     * 数据源ID
      * Get the resource id.
      * e.g. url of a data-source could be the id of the db data-source resource.
      *

@@ -25,6 +25,7 @@ import java.util.List;
 public interface SQLInsertRecognizer extends SQLRecognizer {
 
     /**
+     * 获取插入的列名
      * Gets insert columns.
      *
      * @return the insert columns
@@ -32,6 +33,7 @@ public interface SQLInsertRecognizer extends SQLRecognizer {
     List<String> getInsertColumns();
 
     /**
+     * 获取插入的值集合
      * Gets insert rows.
      *
      * @return the insert rows

@@ -15,6 +15,7 @@
  */
 package io.seata.server.metrics;
 
+import io.seata.core.event.GlobalTransactionEvent;
 import java.util.List;
 
 import io.seata.config.ConfigurationFactory;
@@ -46,15 +47,24 @@ public class MetricsManager {
     }
 
     public void init() {
-        boolean enabled = ConfigurationFactory.getInstance().getBoolean(
-            ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_ENABLED, false);
+        // 'metrics.enabled'
+        boolean enabled = ConfigurationFactory.getInstance()
+            .getBoolean(ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_ENABLED, false);
         if (enabled) {
+            // 允许指标管理
             registry = RegistryFactory.getInstance();
             if (registry != null) {
+                // 指标输出提供者列表
                 List<Exporter> exporters = ExporterFactory.getInstanceList();
                 //only at least one metrics exporter implement had imported in pom then need register MetricsSubscriber
                 if (exporters.size() != 0) {
+                    // 设置注册工厂, 各具体提供者在输出指标等相关操作时, 会用到
                     exporters.forEach(exporter -> exporter.setRegistry(registry));
+
+                    /**
+                     * 注册指标订阅者, 到时各指标数据通过EventBus传送, 订阅者拿到后进行相关操作
+                     * @see MetricsSubscriber#recordGlobalTransactionEventForMetrics(GlobalTransactionEvent)
+                     */
                     EventBusManager.get().register(new MetricsSubscriber(registry));
                 }
             }

@@ -22,6 +22,7 @@ import java.sql.Statement;
 import io.seata.rm.datasource.exec.ExecuteTemplate;
 
 /**
+ * 预编译结果代理
  * The type Statement proxy.
  *
  * @param <T> the type parameter

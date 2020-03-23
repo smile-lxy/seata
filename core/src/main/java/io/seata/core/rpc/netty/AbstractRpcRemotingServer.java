@@ -64,6 +64,7 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
      */
     public AbstractRpcRemotingServer(final ThreadPoolExecutor messageExecutor, NettyServerConfig nettyServerConfig) {
         super(messageExecutor);
+        // 实例化 Bootstrap
         serverBootstrap = new RpcServerBootstrap(nettyServerConfig);
     }
 
@@ -136,7 +137,9 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
 
     @Override
     public void init() {
+        // netty业务Request超时处理任务
         super.init();
+        // 配置netty ServerBootstrap, 启动
         serverBootstrap.start();
     }
 
@@ -157,6 +160,10 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         }
     }
 
+    /**
+     * 关闭Channel
+     * @param ctx
+     */
     private void closeChannelHandlerContext(ChannelHandlerContext ctx) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("closeChannelHandlerContext channel:" + ctx.channel());
@@ -177,7 +184,7 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
     /**
      * The type ServerHandler.
      */
-    @ChannelHandler.Sharable
+    @ChannelHandler.Sharable // 在整个生命周期都是以 单例 的形式存在, 会被多个Channel的Pipeline共享, 因此不是线程安全的
     class ServerHandler extends AbstractHandler {
 
         /**
@@ -189,13 +196,16 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         @Override
         public void dispatch(RpcMessage request, ChannelHandlerContext ctx) {
             Object msg = request.getBody();
-            if (msg instanceof RegisterRMRequest) {
+            if (msg instanceof RegisterRMRequest) { // RM注册消息
                 serverMessageListener.onRegRmMessage(request, ctx, checkAuthHandler);
             } else {
                 if (ChannelManager.isRegistered(ctx.channel())) {
+                    // 已注册的Channel
                     serverMessageListener.onTrxMessage(request, ctx);
                 } else {
+                    // 未注册的Channel
                     try {
+                        // 关闭Channel
                         closeChannelHandlerContext(ctx);
                     } catch (Exception exx) {
                         LOGGER.error(exx.getMessage());
@@ -217,21 +227,26 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         @Override
         public void channelRead(final ChannelHandlerContext ctx, Object msg) throws Exception {
             if (msg instanceof RpcMessage) {
+                // 只处理指定协议消息
                 RpcMessage rpcMessage = (RpcMessage) msg;
                 debugLog("read:" + rpcMessage.getBody());
                 if (rpcMessage.getBody() instanceof RegisterTMRequest) {
+                    // 处理TM注册Request
                     serverMessageListener.onRegTmMessage(rpcMessage, ctx, checkAuthHandler);
                     return;
                 }
                 if (rpcMessage.getBody() == HeartbeatMessage.PING) {
+                    // 处理心跳包Request
                     serverMessageListener.onCheckMessage(rpcMessage, ctx);
                     return;
                 }
             }
+            // 交由父类处理
             super.channelRead(ctx, msg);
         }
 
         /**
+         * 通道不活动时触发
          * Channel inactive.
          *
          * @param ctx the ctx
@@ -241,20 +256,25 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
             debugLog("inactive:" + ctx);
             if (messageExecutor.isShutdown()) {
+                // 线程池已关闭, 不再处理
                 return;
             }
             handleDisconnect(ctx);
             super.channelInactive(ctx);
         }
 
+        /**
+         * 相对于{@link ChannelManager#releaseRpcContext(Channel)} 少了判断, 但多了次判断(null != rpcContext.getClientRole), 待优化
+         * @param ctx
+         */
         private void handleDisconnect(ChannelHandlerContext ctx) {
             final String ipAndPort = NetUtil.toStringAddress(ctx.channel().remoteAddress());
-            RpcContext rpcContext = ChannelManager.getContextFromIdentified(ctx.channel());
+            RpcContext rpcContext = ChannelManager.getContextFromIdentified(ctx.channel()); // 上下文
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(ipAndPort + " to server channel inactive.");
             }
             if (null != rpcContext && null != rpcContext.getClientRole()) {
-                rpcContext.release();
+                rpcContext.release(); // 上下文释放
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("remove channel:" + ctx.channel() + "context:" + rpcContext);
                 }
@@ -277,11 +297,13 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("channel exx:" + cause.getMessage() + ",channel:" + ctx.channel());
             }
+            // 释放上下文
             ChannelManager.releaseRpcContext(ctx.channel());
             super.exceptionCaught(ctx, cause);
         }
 
         /**
+         * 用户心跳包超时时间触发
          * User event triggered.
          *
          * @param ctx the ctx
@@ -297,8 +319,10 @@ public abstract class AbstractRpcRemotingServer extends AbstractRpcRemoting impl
                     if (LOGGER.isInfoEnabled()) {
                         LOGGER.info("channel:" + ctx.channel() + " read idle.");
                     }
+                    // 释放上下文
                     handleDisconnect(ctx);
                     try {
+                        // 关闭Channel
                         closeChannelHandlerContext(ctx);
                     } catch (Exception e) {
                         LOGGER.error(e.getMessage());

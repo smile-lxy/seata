@@ -68,11 +68,14 @@ public class ApolloConfiguration extends AbstractConfiguration {
         if (null == config) {
             synchronized (ApolloConfiguration.class) {
                 if (null == config) {
+                    // Apollo根据namespace获取配置
                     config = ConfigService.getConfig(FILE_CONFIG.getConfig(getApolloNamespaceKey(), DEFAULT_NAMESPACE));
+                    // 初始化线程池
                     configOperateExecutor = new ThreadPoolExecutor(CORE_CONFIG_OPERATE_THREAD,
                         MAX_CONFIG_OPERATE_THREAD, Integer.MAX_VALUE, TimeUnit.MILLISECONDS,
                         new LinkedBlockingQueue<>(),
                         new NamedThreadFactory("apolloConfigOperate", MAX_CONFIG_OPERATE_THREAD));
+                    // 添加配置修改监听
                     config.addChangeListener((changeEvent) -> {
                         for (String key : changeEvent.changedKeys()) {
                             if (!LISTENER_SERVICE_MAP.containsKey(key)) {
@@ -109,11 +112,13 @@ public class ApolloConfiguration extends AbstractConfiguration {
     public String getConfig(String dataId, String defaultValue, long timeoutMills) {
         String value;
         if ((value = getConfigFromSysPro(dataId)) != null) {
+            // 系统配置中存在, 直接返回
             return value;
         }
         ConfigFuture configFuture = new ConfigFuture(dataId, defaultValue, ConfigFuture.ConfigOperation.GET,
             timeoutMills);
         configOperateExecutor.submit(() -> {
+            // 异步获取, 赋值
             String result = config.getProperty(dataId, defaultValue);
             configFuture.setResult(result);
         });
@@ -157,12 +162,17 @@ public class ApolloConfiguration extends AbstractConfiguration {
         return LISTENER_SERVICE_MAP.get(dataId);
     }
 
+    /**
+     * 读取Apoolo配置
+     */
     private void readyApolloConfig() {
         Properties properties = System.getProperties();
         if (!properties.containsKey(APP_ID)) {
+            // 不存在'appId', 配置到系统属性上
             System.setProperty(APP_ID, FILE_CONFIG.getConfig(getApolloAppIdFileKey()));
         }
         if (!properties.containsKey(APOLLO_META)) {
+            // 不存在'apolloMeta', 配置到系统属性上
             System.setProperty(APOLLO_META, FILE_CONFIG.getConfig(getApolloMetaFileKey()));
         }
     }
@@ -172,14 +182,23 @@ public class ApolloConfiguration extends AbstractConfiguration {
         return REGISTRY_TYPE;
     }
 
+    /**
+     * @return 'config.apollo.apolloMeta'
+     */
     private static String getApolloMetaFileKey() {
         return String.join(FILE_CONFIG_SPLIT_CHAR, FILE_ROOT_CONFIG, REGISTRY_TYPE, APOLLO_META);
     }
 
+    /**
+     * @return 'config.apollo.appId'
+     */
     private static String getApolloAppIdFileKey() {
         return String.join(FILE_CONFIG_SPLIT_CHAR, FILE_ROOT_CONFIG, REGISTRY_TYPE, APP_ID);
     }
 
+    /**
+     * @return 'config.apollo.namespace'
+     */
     private static String getApolloNamespaceKey() {
         return String.join(FILE_CONFIG_SPLIT_CHAR, FILE_ROOT_CONFIG, REGISTRY_TYPE, NAMESPACE);
     }

@@ -44,6 +44,7 @@ public class CustomConfigurationProvider implements ConfigurationProvider {
                 .anyMatch(ct -> ct.name().equalsIgnoreCase(name))) {
             throw new IllegalArgumentException(String.format("custom config type name %s is not allowed", name));
         }
+        // SPI机制加载
         return EnhancedServiceLoader.load(ConfigurationProvider.class, name).provide();
     }
 }

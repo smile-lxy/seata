@@ -77,8 +77,12 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     @Override
     protected TableRecords afterImage(TableRecords beforeImage) throws SQLException {
         //Pk column exists or PK is just auto generated
-        List<Object> pkValues = containsPK() ? getPkValuesByColumn() :
-                (containsColumns() ? getPkValuesByAuto() : getPkValuesByColumn());
+        List<Object> pkValues = containsPK() // 包含主键
+            ? getPkValuesByColumn() // 获取主键值
+            : (containsColumns()
+                ? getPkValuesByAuto()
+                : getPkValuesByColumn()
+            );
 
         TableRecords afterImage = buildTableRecords(pkValues);
 
@@ -90,7 +94,9 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     }
 
     protected boolean containsPK() {
+        // SQL识别器
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
+        // 获取插入数据列名列表
         List<String> insertColumns = recognizer.getInsertColumns();
         if (CollectionUtils.isEmpty(insertColumns)) {
             return false;
@@ -99,14 +105,18 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     }
 
     protected boolean containsColumns() {
+        // SQL识别器
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
+        // 获取插入数据列名列表
         List<String> insertColumns = recognizer.getInsertColumns();
         return insertColumns != null && !insertColumns.isEmpty();
     }
 
     protected List<Object> getPkValuesByColumn() throws SQLException {
+        // SQL识别器
         // insert values including PK
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
+        // 主键指针
         final int pkIndex = getPkIndex();
         if (pkIndex == -1) {
             throw new ShouldNeverHappenException(String.format("pkIndex is %d", pkIndex));
@@ -115,6 +125,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         if (statementProxy instanceof PreparedStatementProxy) {
             PreparedStatementProxy preparedStatementProxy = (PreparedStatementProxy) statementProxy;
 
+            // 获取插入数据列名列表
             List<List<Object>> insertRows = recognizer.getInsertRows();
             if (insertRows != null && !insertRows.isEmpty()) {
                 ArrayList<Object>[] parameters = preparedStatementProxy.getParameters();
@@ -220,16 +231,21 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     }
 
     /**
+     * 获取主键指针
      * get pk index
      * @return -1 not found pk index
      */
     protected int getPkIndex() {
+        // SQL识别器
         SQLInsertRecognizer recognizer = (SQLInsertRecognizer) sqlRecognizer;
+        // 获取插入数据列名列表
         List<String> insertColumns = recognizer.getInsertColumns();
         if (CollectionUtils.isNotEmpty(insertColumns)) {
+            // 列名列表不为空, 定位主键指针
             final int insertColumnsSize = insertColumns.size();
             int pkIndex = -1;
             for (int paramIdx = 0; paramIdx < insertColumnsSize; paramIdx++) {
+                // 比对
                 if (equalsPK(insertColumns.get(paramIdx))) {
                     pkIndex = paramIdx;
                     break;
@@ -238,9 +254,11 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
             return pkIndex;
         }
         int pkIndex = -1;
+        // 获取表元信息所有列元信息
         Map<String, ColumnMeta> allColumns = getTableMeta().getAllColumns();
         for (Map.Entry<String, ColumnMeta> entry : allColumns.entrySet()) {
             pkIndex++;
+            // 比对
             if (equalsPK(entry.getValue().getColumnName())) {
                 break;
             }
@@ -282,6 +300,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
      * @throws SQLException the SQL exception
      */
     private List<Object> defaultByAuto() throws SQLException {
+        // 主键集合
         // PK is just auto generated
         Map<String, ColumnMeta> pkMetaMap = getTableMeta().getPrimaryKeyMap();
         if (pkMetaMap.size() != 1) {
@@ -289,6 +308,7 @@ public class InsertExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
         }
         ColumnMeta pkMeta = pkMetaMap.values().iterator().next();
         if (!pkMeta.isAutoincrement()) {
+            // 不是自增, 抛出
             throw new ShouldNeverHappenException();
         }
 

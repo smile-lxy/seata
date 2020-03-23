@@ -114,6 +114,7 @@ public abstract class AbstractExceptionHandler {
     public void exceptionHandleTemplate(Callback callback, AbstractTransactionRequest request,
         AbstractTransactionResponse response) {
         try {
+            // 执行自定义操作
             callback.execute(request, response);
             callback.onSuccess(request, response);
         } catch (TransactionException tex) {

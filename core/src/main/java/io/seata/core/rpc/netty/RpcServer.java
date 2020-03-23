@@ -50,12 +50,18 @@ public class RpcServer extends AbstractRpcRemotingServer {
      */
     @Override
     public void init() {
+        // 实例化消息监听器
         DefaultServerMessageListenerImpl defaultServerMessageListenerImpl =
             new DefaultServerMessageListenerImpl(getTransactionMessageHandler());
+        // 消息监听器初始化
         defaultServerMessageListenerImpl.init();
+        // 将自身设置到消息监听器中, 方便处理消息后Response
         defaultServerMessageListenerImpl.setServerMessageSender(this);
+        // 设置监听器, 方便'ServerHandler#channelRead'接受到消息后路由处理
         super.setServerMessageListener(defaultServerMessageListenerImpl);
+        // 设置消息处理Handler
         super.setChannelHandlers(new ServerHandler());
+        // 初始化
         super.init();
     }
 
@@ -84,9 +90,11 @@ public class RpcServer extends AbstractRpcRemotingServer {
     public void sendResponse(RpcMessage request, Channel channel, Object msg) {
         Channel clientChannel = channel;
         if (!(msg instanceof HeartbeatMessage)) {
+            // 不是心跳包相关Request, 获取相同业务可用的Channel(防止原Channel不可用)
             clientChannel = ChannelManager.getSameClientChannel(channel);
         }
         if (clientChannel != null) {
+            // 存在可用Channel, 发送结果
             super.defaultSendResponse(request, clientChannel, msg);
         } else {
             throw new RuntimeException("channel is error. channel:" + clientChannel);
@@ -107,12 +115,14 @@ public class RpcServer extends AbstractRpcRemotingServer {
     @Override
     public Object sendSyncRequest(String resourceId, String clientId, Object message,
                                   long timeout) throws TimeoutException {
+        // 获取对应Channel
         Channel clientChannel = ChannelManager.getChannel(resourceId, clientId);
         if (clientChannel == null) {
-            throw new RuntimeException("rm client is not connected. dbkey:" + resourceId
-                + ",clientId:" + clientId);
+            throw new RuntimeException("rm client is not connected. dbkey:"
+                + resourceId + ",clientId:" + clientId);
 
         }
+        // 发送异步请求
         return sendAsyncRequestWithResponse(null, clientChannel, message, timeout);
     }
 

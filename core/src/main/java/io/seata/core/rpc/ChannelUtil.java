@@ -29,6 +29,7 @@ public class ChannelUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChannelUtil.class);
 
     /**
+     * 根据Channel获取地址
      * get address from channel
      * @param channel the channel
      * @return address
@@ -43,6 +44,7 @@ public class ChannelUtil {
     }
 
     /**
+     * 根据Channel获取IP
      * get client ip from channel
      * @param channel the channel
      * @return client ip
@@ -57,6 +59,7 @@ public class ChannelUtil {
     }
 
     /**
+     * 根据Channel获取Port
      * get client port from channel
      * @param channel the channel
      * @return client port

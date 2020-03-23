@@ -68,15 +68,18 @@ public class RpcContext {
      * Release.
      */
     public void release() {
+        // 通道端口号
         Integer clientPort = ChannelUtil.getClientPortFromChannel(channel);
         if (clientIDHolderMap != null) {
             clientIDHolderMap = null;
         }
         if (clientRole == NettyPoolKey.TransactionRole.TMROLE && clientTMHolderMap != null) {
+            // 从TM缓存集合中移除
             clientTMHolderMap.remove(clientPort);
             clientTMHolderMap = null;
         }
         if (clientRole == NettyPoolKey.TransactionRole.RMROLE && clientRMHolderMap != null) {
+            // 从RM缓存集合中移除
             for (Map<Integer, RpcContext> portMap : clientRMHolderMap.values()) {
                 portMap.remove(clientPort);
             }
@@ -87,7 +90,10 @@ public class RpcContext {
         }
     }
 
+    // 这下面的缓存操作是DDD的吧, 提高复用性...
+
     /**
+     * 缓存TM Channel上下文
      * Hold in client channels.
      *
      * @param clientTMHolderMap the client tm holder map
@@ -102,6 +108,7 @@ public class RpcContext {
     }
 
     /**
+     * 缓存Channel上下文
      * Hold in identified channels.
      *
      * @param clientIDHolderMap the client id holder map
@@ -115,6 +122,7 @@ public class RpcContext {
     }
 
     /**
+     * 缓存资源对应上下文
      * Hold in resource manager channels.
      *
      * @param resourceId the resource id
@@ -130,6 +138,7 @@ public class RpcContext {
     }
 
     /**
+     * 缓存客户端端口对应上下文
      * Hold in resource manager channels.
      *
      * @param resourceId the resource id

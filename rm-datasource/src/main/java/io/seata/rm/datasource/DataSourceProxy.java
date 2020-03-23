@@ -85,13 +85,15 @@ public class DataSourceProxy extends AbstractDataSourceProxy implements Resource
     private void init(DataSource dataSource, String resourceGroupId) {
         this.resourceGroupId = resourceGroupId;
         try (Connection connection = dataSource.getConnection()) {
-            jdbcUrl = connection.getMetaData().getURL();
-            dbType = JdbcUtils.getDbType(jdbcUrl);
+            this.jdbcUrl = connection.getMetaData().getURL();
+            this.dbType = JdbcUtils.getDbType(jdbcUrl);
         } catch (SQLException e) {
             throw new IllegalStateException("can not init dataSource", e);
         }
+        // 注册当前资源信息
         DefaultResourceManager.get().registerResource(this);
         if (ENABLE_TABLE_META_CHECKER_ENABLE) {
+            // 如果开启表元信息检测, 设置定时任务
             tableMetaExcutor.scheduleAtFixedRate(() -> {
                 try (Connection connection = dataSource.getConnection()) {
                     TableMetaCacheFactory.getTableMetaCache(DataSourceProxy.this.getDbType())
@@ -99,7 +101,7 @@ public class DataSourceProxy extends AbstractDataSourceProxy implements Resource
                 } catch (Exception ignore) {
                 }
             }, 0, TABLE_META_CHECKER_INTERVAL, TimeUnit.MILLISECONDS);
-        }
+        } //         60s
     }
 
     /**
@@ -138,6 +140,12 @@ public class DataSourceProxy extends AbstractDataSourceProxy implements Resource
         return resourceGroupId;
     }
 
+    /**
+     * 数据源ID
+     * jdbc:mysql://127.0.0.1:3306/seata?characterEncoding=utf-8....
+     * jdbc:mysql://127.0.0.1:3306/seata
+     * @return
+     */
     @Override
     public String getResourceId() {
         if (jdbcUrl.contains("?")) {

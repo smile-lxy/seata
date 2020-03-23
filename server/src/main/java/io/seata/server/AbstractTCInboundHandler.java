@@ -58,8 +58,8 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
                     doGlobalBegin(request, response, rpcContext);
                 } catch (StoreException e) {
                     throw new TransactionException(TransactionExceptionCode.FailedStore,
-                        String.format("begin global request failed. xid=%s, msg=%s", response.getXid(), e.getMessage()),
-                        e);
+                        String.format("begin global request failed. xid=%s, msg=%s", response.getXid(), e.getMessage()), e
+                    );
                 }
             }
         }, request, response);
@@ -67,6 +67,7 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
     }
 
     /**
+     * 执行开启全局事务
      * Do global begin.
      *
      * @param request    the request
@@ -115,6 +116,7 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
             public void execute(GlobalRollbackRequest request, GlobalRollbackResponse response)
                 throws TransactionException {
                 try {
+                    // 执行全局事务回滚
                     doGlobalRollback(request, response, rpcContext);
                 } catch (StoreException e) {
                     throw new TransactionException(TransactionExceptionCode.FailedStore, String
@@ -169,10 +171,13 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
             public void execute(BranchRegisterRequest request, BranchRegisterResponse response)
                 throws TransactionException {
                 try {
+                    // 执行Branch注册
                     doBranchRegister(request, response, rpcContext);
                 } catch (StoreException e) {
-                    throw new TransactionException(TransactionExceptionCode.FailedStore, String
-                        .format("branch register request failed. xid=%s, msg=%s", request.getXid(), e.getMessage()), e);
+                    throw new TransactionException(TransactionExceptionCode.FailedStore,
+                        String.format("branch register request failed. xid=%s, msg=%s",
+                            request.getXid(), e.getMessage()), e
+                    );
                 }
             }
         }, request, response);
@@ -229,9 +234,10 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
                 try {
                     doLockCheck(request, response, rpcContext);
                 } catch (StoreException e) {
-                    throw new TransactionException(TransactionExceptionCode.FailedStore, String
-                        .format("global lock query request failed. xid=%s, msg=%s", request.getXid(), e.getMessage()),
-                        e);
+                    throw new TransactionException(TransactionExceptionCode.FailedStore,
+                        String.format("global lock query request failed. xid=%s, msg=%s",
+                            request.getXid(), e.getMessage()), e
+                    );
                 }
             }
         }, request, response);
@@ -239,6 +245,7 @@ public abstract class AbstractTCInboundHandler extends AbstractExceptionHandler 
     }
 
     /**
+     * 执行锁检测
      * Do lock check.
      *
      * @param request    the request

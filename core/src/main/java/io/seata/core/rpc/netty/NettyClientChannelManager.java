@@ -90,8 +90,10 @@ class NettyClientChannelManager {
     Channel acquireChannel(String serverAddress) {
         Channel channelToServer = channels.get(serverAddress);
         if (channelToServer != null) {
+            // 获取存活可用的Channel
             channelToServer = getExistAliveChannel(channelToServer, serverAddress);
             if (null != channelToServer) {
+                // 有存活可以的, 直接返回
                 return channelToServer;
             }
         }
@@ -100,6 +102,7 @@ class NettyClientChannelManager {
         }
         channelLocks.putIfAbsent(serverAddress, new Object());
         synchronized (channelLocks.get(serverAddress)) {
+            // 执行连接
             return doConnect(serverAddress);
         }
     }
@@ -143,8 +146,10 @@ class NettyClientChannelManager {
         if (null == channel) { return; }
         try {
             if (channel.equals(channels.get(serverAddress))) {
+                // 从Channel集合中移除Channel
                 channels.remove(serverAddress);
             }
+            // 将Channel返回线程池(若超过'maxIdle', 销毁)
             nettyClientKeyPool.returnObject(poolKeyMap.get(serverAddress), channel);
         } catch (Exception exx) {
             LOGGER.error("return channel to rmPool error:{}", exx.getMessage());
@@ -152,6 +157,7 @@ class NettyClientChannelManager {
     }
     
     /**
+     * 重连Server
      * Reconnect to remote server of current transaction service group.
      *
      * @param transactionServiceGroup transaction service group
@@ -159,14 +165,15 @@ class NettyClientChannelManager {
     void reconnect(String transactionServiceGroup) {
         List<String> availList = null;
         try {
+            // 可用Server地址列表
             availList = getAvailServerList(transactionServiceGroup);
         } catch (Exception e) {
             LOGGER.error("Failed to get available servers: {}", e.getMessage(), e);
             return;
         }
         if (CollectionUtils.isEmpty(availList)) {
-            String serviceGroup = RegistryFactory.getInstance()
-                                                 .getServiceGroup(transactionServiceGroup);
+            // 从配置文件中获取Server地址
+            String serviceGroup = RegistryFactory.getInstance().getServiceGroup(transactionServiceGroup);
             LOGGER.error("no available service '{}' found, please make sure registry config correct", serviceGroup);
             return;
         }
@@ -180,6 +187,7 @@ class NettyClientChannelManager {
     }
     
     void invalidateObject(final String serverAddress, final Channel channel) throws Exception {
+        // 销毁Channel
         nettyClientKeyPool.invalidateObject(poolKeyMap.get(serverAddress), channel);
     }
     
@@ -191,6 +199,7 @@ class NettyClientChannelManager {
     }
     
     private Channel doConnect(String serverAddress) {
+        // 再次确认是否存活
         Channel channelToServer = channels.get(serverAddress);
         if (channelToServer != null && channelToServer.isActive()) {
             return channelToServer;
@@ -213,8 +222,8 @@ class NettyClientChannelManager {
     }
     
     private List<String> getAvailServerList(String transactionServiceGroup) throws Exception {
-        List<InetSocketAddress> availInetSocketAddressList = RegistryFactory.getInstance()
-                                                                            .lookup(transactionServiceGroup);
+        // 从注册中心获取可用Server列表
+        List<InetSocketAddress> availInetSocketAddressList = RegistryFactory.getInstance().lookup(transactionServiceGroup);
         if (CollectionUtils.isEmpty(availInetSocketAddressList)) {
             return Collections.emptyList();
         }
@@ -223,24 +232,31 @@ class NettyClientChannelManager {
                                          .map(NetUtil::toStringAddress)
                                          .collect(Collectors.toList());
     }
-    
+
+    /**
+     * 获取存在活的Channel
+     */
     private Channel getExistAliveChannel(Channel rmChannel, String serverAddress) {
         if (rmChannel.isActive()) {
+            // 存活, 直接返回
             return rmChannel;
         } else {
             int i = 0;
             for (; i < NettyClientConfig.getMaxCheckAliveRetry(); i++) {
+                // 最大检查有效重试次数
                 try {
                     Thread.sleep(NettyClientConfig.getCheckAliveInternal());
                 } catch (InterruptedException exx) {
                     LOGGER.error(exx.getMessage());
                 }
+                // 再次确认是否存活
                 rmChannel = channels.get(serverAddress);
                 if (null != rmChannel && rmChannel.isActive()) {
                     return rmChannel;
                 }
             }
             if (i == NettyClientConfig.getMaxCheckAliveRetry()) {
+                // 到最大检查次数, 释放Channel
                 LOGGER.warn("channel {} is not active after long wait, close it.", rmChannel);
                 releaseChannel(rmChannel, serverAddress);
                 return null;

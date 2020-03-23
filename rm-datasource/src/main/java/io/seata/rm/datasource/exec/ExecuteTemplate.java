@@ -64,20 +64,22 @@ public class ExecuteTemplate {
                                                      StatementCallback<T, S> statementCallback,
                                                      Object... args) throws SQLException {
 
+        // 如果未使用Seata事务管理, 按原始操作处理
         if (!RootContext.inGlobalTransaction() && !RootContext.requireGlobalLock()) {
             // Just work as original statement
             return statementCallback.execute(statementProxy.getTargetStatement(), args);
         }
 
+        // 获取对应SQL 识别器
         if (sqlRecognizer == null) {
-            sqlRecognizer = SQLVisitorFactory.get(
-                    statementProxy.getTargetSQL(),
+            sqlRecognizer = SQLVisitorFactory.get(statementProxy.getTargetSQL(),
                     statementProxy.getConnectionProxy().getDbType());
         }
         Executor<T> executor;
         if (sqlRecognizer == null) {
             executor = new PlainExecutor<>(statementProxy, statementCallback);
         } else {
+            // 根据SQL类型构建SQL执行器
             switch (sqlRecognizer.getSQLType()) {
                 case INSERT:
                     executor = new InsertExecutor<>(statementProxy, statementCallback, sqlRecognizer);
@@ -101,6 +103,7 @@ public class ExecuteTemplate {
             rs = executor.execute(args);
         } catch (Throwable ex) {
             if (!(ex instanceof SQLException)) {
+                // 不是SQL异常, 包装抛出
                 // Turn other exception into SQLException
                 ex = new SQLException(ex);
             }

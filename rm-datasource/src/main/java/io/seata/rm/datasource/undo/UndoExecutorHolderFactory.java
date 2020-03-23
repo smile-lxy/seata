@@ -39,6 +39,7 @@ public class UndoExecutorHolderFactory {
         if (UNDO_EXECUTOR_HOLDER_MAP.get(dbType) != null) {
             return UNDO_EXECUTOR_HOLDER_MAP.get(dbType);
         }
+        // SPI机制加载
         UndoExecutorHolder undoExecutorHolder = EnhancedServiceLoader.load(UndoExecutorHolder.class, dbType);
         UNDO_EXECUTOR_HOLDER_MAP.putIfAbsent(dbType, undoExecutorHolder);
         return undoExecutorHolder;

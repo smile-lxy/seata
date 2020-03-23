@@ -41,14 +41,16 @@ import static io.seata.spring.boot.autoconfigure.util.StringFormatUtils.DOT;
  * @author xingfudeshi@gmail.com
  */
 public class SpringBootConfigurationProvider implements ExtConfigurationProvider {
-    private static final String INTERCEPT_METHOD_PREFIX = "get";
+    private static final String INTERCEPT_METHOD_PREFIX = "get"; // 拦截方法前缀
 
     @Override
     public Configuration provide(Configuration originalConfiguration) {
+        // 动态代理创建拦截器
         return (Configuration) Enhancer.create(originalConfiguration.getClass(), new MethodInterceptor() {
             @Override
             public Object intercept(Object proxy, Method method, Object[] args, MethodProxy methodProxy)
                 throws Throwable {
+                // 方法名前缀为'get', 参数数量 > 0
                 if (method.getName().startsWith(INTERCEPT_METHOD_PREFIX) && args.length > 0) {
                     Object result = null;
                     String rawDataId = (String) args[0];
@@ -57,9 +59,10 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
                     } else if (args.length == 2) {
                         result = get(convertDataId(rawDataId), args[1]);
                     } else if (args.length == 3) {
-                        result = get(convertDataId(rawDataId), args[1], (Long) args[2]);
+                        result = get(convertDataId(rawDataId), args[1], (Long) args[2]); // 超时没用到...
                     }
                     if (null != result) {
+                        // 如果返回类型要求String, 转换
                         //If the return type is String,need to convert the object to string
                         if (method.getReturnType().equals(String.class)) {
                             return String.valueOf(result);
@@ -68,6 +71,7 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
                     }
                 }
 
+                // 反射获取
                 return method.invoke(originalConfiguration, args);
             }
         });
@@ -86,19 +90,28 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
         return result;
     }
 
+    /**
+     * 通过反射获取配置参数
+     * @param dataId 参数key(例: seata.registry.redis.db)
+     * @return
+     * @throws IllegalAccessException
+     */
     private Object get(String dataId) throws IllegalAccessException {
-        String propertySuffix = getPropertySuffix(dataId);
+        String propertySuffix = getPropertySuffix(dataId); // 尾参数
+        // 头参数对应属性实体类
         Class propertyClass = getPropertyClass(getPropertyPrefix(dataId));
         if (null != propertyClass) {
+            // ApplicationContext获取对应属性实体类
             Object propertyObject = ObjectHolder.INSTANCE.getObject(ApplicationContext.class).getBean(propertyClass);
-            Optional<Field> fieldOptional = Stream.of(propertyObject.getClass().getDeclaredFields()).filter(
-                f -> f.getName().equalsIgnoreCase(propertySuffix)).findAny();
+            Optional<Field> fieldOptional = Stream.of(propertyObject.getClass().getDeclaredFields())
+                .filter(f -> f.getName().equalsIgnoreCase(propertySuffix))
+                .findAny(); // 获取对应字段, 会被 provide()中的intercept()拦截, 通过反射找到返回
             if (fieldOptional.isPresent()) {
                 Field field = fieldOptional.get();
                 field.setAccessible(true);
-                Object valueObject = field.get(propertyObject);
+                Object valueObject = field.get(propertyObject); // 获取对应的值
                 if (valueObject instanceof Map) {
-                    String key = StringUtils.substringAfterLast(dataId, String.valueOf(DOT));
+                    String key = StringUtils.substringAfterLast(dataId, String.valueOf(DOT)); // ${suffix}
                     valueObject = ((Map) valueObject).get(key);
                 }
                 return valueObject;
@@ -108,6 +121,7 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
     }
 
     /**
+     * 转换数据
      * convert data id
      *
      * @param rawDataId
@@ -115,18 +129,20 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
      */
     private String convertDataId(String rawDataId) {
         if (rawDataId.endsWith(SPECIAL_KEY_GROUPLIST)) {
-            String suffix = StringUtils.removeEnd(rawDataId, DOT + SPECIAL_KEY_GROUPLIST);
+            // 参数以'grouplist'结尾
+            String suffix = StringUtils.removeEnd(rawDataId, DOT + SPECIAL_KEY_GROUPLIST); // 移除'.grouplist'
             //change the format of default.grouplist to grouplist.default
-            return SERVICE_PREFIX + DOT + SPECIAL_KEY_GROUPLIST + DOT + suffix;
+            return SERVICE_PREFIX + DOT + SPECIAL_KEY_GROUPLIST + DOT + suffix; // '.service.grouplist.${suffix}'
         }
-        return SEATA_PREFIX + DOT + rawDataId;
+        return SEATA_PREFIX + DOT + rawDataId; // 'seata.${dataId}'
     }
 
     /**
+     * 获取头节点参数
      * Get property prefix
      *
-     * @param dataId
-     * @return propertyPrefix
+     * @param dataId 例: seata.registry.redis.db
+     * @return propertyPrefix 例: seata
      */
     private String getPropertyPrefix(String dataId) {
         if (dataId.contains(SPECIAL_KEY_VGROUP_MAPPING)) {
@@ -139,24 +155,28 @@ public class SpringBootConfigurationProvider implements ExtConfigurationProvider
     }
 
     /**
+     * 获取尾节点参数
      * Get property suffix
      *
-     * @param dataId
-     * @return propertySuffix
+     * @param dataId 例: seata.registry.redis.db
+     * @return propertySuffix 例: db
      */
     private String getPropertySuffix(String dataId) {
         if (dataId.contains(SPECIAL_KEY_VGROUP_MAPPING)) {
-            return SPECIAL_KEY_VGROUP_MAPPING;
+            // 包含'vgroupMapping'
+            return SPECIAL_KEY_VGROUP_MAPPING; // 'vgroupMapping'
         }
         if (dataId.contains(SPECIAL_KEY_GROUPLIST)) {
-            return SPECIAL_KEY_GROUPLIST;
+            // 包含'grouplist'
+            return SPECIAL_KEY_GROUPLIST; // 'grouplist'
         }
         return StringUtils.substringAfterLast(dataId, String.valueOf(DOT));
     }
 
     /**
+     * 获取头参数对应实体类
      * Get property class
-     *
+     * PROPERTY_MAP将在'StarterConstants'static{} 中初始化
      * @param propertyPrefix
      * @return propertyClass
      */

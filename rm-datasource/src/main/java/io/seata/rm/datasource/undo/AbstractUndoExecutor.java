@@ -111,8 +111,10 @@ public abstract class AbstractUndoExecutor {
         }
 
         try {
+            // SQL语句
             String undoSQL = buildUndoSQL();
 
+            // 预编译
             PreparedStatement undoPST = conn.prepareStatement(undoSQL);
 
             TableRecords undoRows = getUndoRows();
@@ -128,8 +130,10 @@ public abstract class AbstractUndoExecutor {
                     }
                 }
 
+                // 填充SQL值
                 undoPrepare(undoPST, undoValues, pkValue);
 
+                // 执行
                 undoPST.executeUpdate();
             }
 
@@ -145,6 +149,7 @@ public abstract class AbstractUndoExecutor {
     }
 
     /**
+     * 填充SQL值
      * Undo prepare.
      *
      * @param undoPST    the undo pst
@@ -155,7 +160,9 @@ public abstract class AbstractUndoExecutor {
     protected void undoPrepare(PreparedStatement undoPST, ArrayList<Field> undoValues, Field pkValue)
         throws SQLException {
         int undoIndex = 0;
+        // 设置参数
         for (Field undoValue : undoValues) {
+            // 识别参数类型, 填充
             undoIndex++;
             if (undoValue.getType() == JDBCType.BLOB.getVendorTypeNumber()) {
                 SerialBlob serialBlob = (SerialBlob) undoValue.getValue();
@@ -182,6 +189,7 @@ public abstract class AbstractUndoExecutor {
         // UPDATE a SET x=?, y=?, z=? WHERE pk = ?
         // DELETE FROM a WHERE pk = ?
         undoIndex++;
+        // 填充主键值
         undoPST.setObject(undoIndex, pkValue.getValue(), pkValue.getType());
     }
 

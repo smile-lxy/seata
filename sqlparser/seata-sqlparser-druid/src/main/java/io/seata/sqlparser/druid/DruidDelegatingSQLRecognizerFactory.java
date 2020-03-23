@@ -40,6 +40,7 @@ public class DruidDelegatingSQLRecognizerFactory implements SQLRecognizerFactory
      * @param classLoader classLoader
      */
     void setClassLoader(ClassLoader classLoader) {
+        // 反射实例化
         try {
             Class<?> recognizerFactoryImplClass = classLoader.loadClass("io.seata.sqlparser.druid.DruidSQLRecognizerFactoryImpl");
             Constructor<?> implConstructor = recognizerFactoryImplClass.getDeclaredConstructor();

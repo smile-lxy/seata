@@ -27,6 +27,7 @@ import io.seata.core.rpc.netty.RegisterCheckAuthHandler;
 public interface ServerMessageListener {
 
     /**
+     * 处理事务消息
      * On trx message.
      *
      * @param request the msg id
@@ -35,6 +36,7 @@ public interface ServerMessageListener {
     void onTrxMessage(RpcMessage request, ChannelHandlerContext ctx);
 
     /**
+     * RM注册消息
      * On reg rm message.
      *
      * @param request          the msg id
@@ -44,6 +46,7 @@ public interface ServerMessageListener {
     void onRegRmMessage(RpcMessage request, ChannelHandlerContext ctx, RegisterCheckAuthHandler checkAuthHandler);
 
     /**
+     * TM注册消息
      * On reg tm message.
      *
      * @param request          the msg id
@@ -53,6 +56,7 @@ public interface ServerMessageListener {
     void onRegTmMessage(RpcMessage request, ChannelHandlerContext ctx, RegisterCheckAuthHandler checkAuthHandler);
 
     /**
+     * 心跳包检测消息
      * On check message.
      *
      * @param request the msg id

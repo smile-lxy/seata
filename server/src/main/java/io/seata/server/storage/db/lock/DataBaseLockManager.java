@@ -57,6 +57,7 @@ public class DataBaseLockManager extends AbstractLockManager implements Initiali
     @Override
     public boolean releaseLock(BranchSession branchSession) throws TransactionException {
         try {
+            // 获取锁管理器, 释放锁
             return getLocker().releaseLock(branchSession.getXid(), branchSession.getBranchId());
         } catch (Exception t) {
             LOGGER.error("unLock error, xid {}, branchId:{}", branchSession.getXid(), branchSession.getBranchId(), t);
@@ -77,10 +78,11 @@ public class DataBaseLockManager extends AbstractLockManager implements Initiali
         }
         List<Long> branchIds = branchSessions.stream().map(BranchSession::getBranchId).collect(Collectors.toList());
         try {
+            // 释放Branch锁
             return getLocker().releaseLock(globalSession.getXid(), branchIds);
         } catch (Exception t) {
-            LOGGER.error("unLock globalSession error, xid:{} branchIds:{}", globalSession.getXid(),
-                CollectionUtils.toString(branchIds), t);
+            LOGGER.error("unLock globalSession error, xid:{} branchIds:{}",
+                globalSession.getXid(), CollectionUtils.toString(branchIds), t);
             return false;
         }
     }

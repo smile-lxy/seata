@@ -107,19 +107,29 @@ public class StateMachineProcessRouter implements ProcessRouter {
 
     public void initDefaultStateRouters() {
         if (this.stateRouters.size() == 0) {
+            // 任务状态路由
             TaskStateRouter taskStateRouter = new TaskStateRouter();
+            // 调用服务任务
             this.stateRouters.put(DomainConstants.STATE_TYPE_SERVICE_TASK, taskStateRouter);
+            // 单条件选择
             this.stateRouters.put(DomainConstants.STATE_TYPE_CHOICE, taskStateRouter);
+            // 补偿
             this.stateRouters.put(DomainConstants.STATE_TYPE_COMPENSATION_TRIGGER, taskStateRouter);
+            // 子状态机
             this.stateRouters.put(DomainConstants.STATE_TYPE_SUB_STATE_MACHINE, taskStateRouter);
+            // 子状态机补偿
             this.stateRouters.put(DomainConstants.STATE_TYPE_SUB_MACHINE_COMPENSATION, taskStateRouter);
 
+            // 结束
             EndStateRouter endStateRouter = new EndStateRouter();
             List<StateRouterInterceptor> stateRouterInterceptors = new ArrayList<>(1);
+            // 结束状态路由拦截
             stateRouterInterceptors.add(new EndStateRouterInterceptor());
             endStateRouter.setInterceptors(stateRouterInterceptors);
 
+            // 成功
             this.stateRouters.put(DomainConstants.STATE_TYPE_SUCCEED, endStateRouter);
+            // 失败
             this.stateRouters.put(DomainConstants.STATE_TYPE_FAIL, endStateRouter);
         }
     }

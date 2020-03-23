@@ -39,8 +39,7 @@ public class DefaultResourceManager implements ResourceManager {
     /**
      * all resource managers
      */
-    protected static Map<BranchType, ResourceManager> resourceManagers
-        = new ConcurrentHashMap<>();
+    protected static Map<BranchType, ResourceManager> resourceManagers = new ConcurrentHashMap<>();
 
     private DefaultResourceManager() {
         initResourceManagers();
@@ -66,7 +65,7 @@ public class DefaultResourceManager implements ResourceManager {
     }
 
     protected void initResourceManagers() {
-        //init all resource managers
+        //init all resource managers SPI加载指定实现者
         List<ResourceManager> allResourceManagers = EnhancedServiceLoader.loadAll(ResourceManager.class);
         if (CollectionUtils.isNotEmpty(allResourceManagers)) {
             for (ResourceManager rm : allResourceManagers) {
@@ -77,45 +76,49 @@ public class DefaultResourceManager implements ResourceManager {
 
     @Override
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId,
-                                     String resourceId, String applicationData)
-        throws TransactionException {
+        String resourceId, String applicationData) throws TransactionException {
+        // 获取相应资源管理器, 执行Commit操作
         return getResourceManager(branchType).branchCommit(branchType, xid, branchId, resourceId, applicationData);
     }
 
     @Override
     public BranchStatus branchRollback(BranchType branchType, String xid, long branchId,
-                                       String resourceId, String applicationData)
-        throws TransactionException {
+        String resourceId, String applicationData) throws TransactionException {
+        // 获取相应资源管理器, 执行rollback操作
         return getResourceManager(branchType).branchRollback(branchType, xid, branchId, resourceId, applicationData);
     }
 
     @Override
     public Long branchRegister(BranchType branchType, String resourceId,
-                               String clientId, String xid, String applicationData, String lockKeys)
-        throws TransactionException {
-        return getResourceManager(branchType).branchRegister(branchType, resourceId, clientId, xid, applicationData,
-            lockKeys);
+        String clientId, String xid, String applicationData, String lockKeys) throws TransactionException {
+        // 获取相应资源管理器, 执行register操作 DefaultCoordinator#doBranchRegister
+        return getResourceManager(branchType)
+            .branchRegister(branchType, resourceId, clientId, xid, applicationData, lockKeys);
     }
 
     @Override
     public void branchReport(BranchType branchType, String xid, long branchId, BranchStatus status,
-                             String applicationData) throws TransactionException {
+        String applicationData) throws TransactionException {
+        // 获取相应资源管理器, 执行report操作
         getResourceManager(branchType).branchReport(branchType, xid, branchId, status, applicationData);
     }
 
     @Override
-    public boolean lockQuery(BranchType branchType, String resourceId,
-                             String xid, String lockKeys) throws TransactionException {
+    public boolean lockQuery(BranchType branchType, String resourceId, String xid, String lockKeys)
+        throws TransactionException {
+        // 获取相应资源管理器, 执行lockQuery操作
         return getResourceManager(branchType).lockQuery(branchType, resourceId, xid, lockKeys);
     }
 
     @Override
     public void registerResource(Resource resource) {
+        // 获取相应资源管理器, 执行registerResource操作
         getResourceManager(resource.getBranchType()).registerResource(resource);
     }
 
     @Override
     public void unregisterResource(Resource resource) {
+        // 获取相应资源管理器, 执行unregisterResource操作
         getResourceManager(resource.getBranchType()).unregisterResource(resource);
     }
 

@@ -39,9 +39,11 @@ public class ApacheDubboTransactionPropagationFilter implements Filter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        // Consumer 调用 Provider时有
         String xid = RootContext.getXID();
         String xidInterceptorType = RootContext.getXIDInterceptorType();
 
+        // Provider 被 Consumer 调用时有
         String rpcXid = getRpcXid();
         String rpcXidInterceptorType = RpcContext.getContext().getAttachment(RootContext.KEY_XID_INTERCEPTOR_TYPE);
         if (LOGGER.isDebugEnabled()) {

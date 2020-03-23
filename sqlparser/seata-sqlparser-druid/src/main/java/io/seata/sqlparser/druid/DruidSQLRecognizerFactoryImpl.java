@@ -35,12 +35,15 @@ import java.util.List;
 class DruidSQLRecognizerFactoryImpl implements SQLRecognizerFactory {
     @Override
     public SQLRecognizer create(String sql, String dbType) {
+        // 预编译
         List<SQLStatement> asts = SQLUtils.parseStatements(sql, dbType);
         if (asts == null || asts.size() != 1) {
             throw new UnsupportedOperationException("Unsupported SQL: " + sql);
         }
         SQLRecognizer recognizer = null;
         SQLStatement ast = asts.get(0);
+
+        // 获取对应数据源SQL识别器持有者
         SQLOperateRecognizerHolder recognizerHolder =
                 SQLOperateRecognizerHolderFactory.getSQLRecognizerHolder(dbType.toLowerCase());
         if (ast instanceof SQLInsertStatement) {

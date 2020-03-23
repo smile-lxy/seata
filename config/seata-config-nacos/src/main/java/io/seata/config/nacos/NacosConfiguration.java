@@ -92,13 +92,17 @@ public class NacosConfiguration extends AbstractConfiguration {
     public String getConfig(String dataId, String defaultValue, long timeoutMills) {
         String value;
         if ((value = getConfigFromSysPro(dataId)) != null) {
+            // 系统配置中存在, 直接返回
             return value;
         }
         try {
+            // 从配置中心获取
             value = configService.getConfig(dataId, getNacosGroup(), timeoutMills);
         } catch (NacosException exx) {
             LOGGER.error(exx.getErrMsg());
         }
+
+        // 有则返回, 无则默认值
         return value == null ? defaultValue : value;
     }
 
@@ -136,8 +140,10 @@ public class NacosConfiguration extends AbstractConfiguration {
         }
         try {
             configListenersMap.putIfAbsent(dataId, new ConcurrentHashMap<>());
+            // 监听器
             NacosListener nacosListener = new NacosListener(dataId, listener);
             configListenersMap.get(dataId).put(listener, nacosListener);
+            // 配置监听器
             configService.addListener(dataId, getNacosGroup(), nacosListener);
         } catch (Exception exx) {
             LOGGER.error("add nacos listener error:{}", exx.getMessage(), exx);
@@ -177,8 +183,10 @@ public class NacosConfiguration extends AbstractConfiguration {
     private static Properties getConfigProperties() {
         Properties properties = new Properties();
         if (null != System.getProperty(PRO_SERVER_ADDR_KEY)) {
+            // 系统配置含有'serverAddr', 配置
             properties.setProperty(PRO_SERVER_ADDR_KEY, System.getProperty(PRO_SERVER_ADDR_KEY));
         } else {
+            // 不存在, 从配置文件中获取'config.nacos.serverAddr'
             String address = FILE_CONFIG.getConfig(getNacosAddrFileKey());
             if (null != address) {
                 properties.setProperty(PRO_SERVER_ADDR_KEY, address);
@@ -186,8 +194,10 @@ public class NacosConfiguration extends AbstractConfiguration {
         }
 
         if (null != System.getProperty(PRO_NAMESPACE_KEY)) {
+            // 系统配置含有'namespace', 配置
             properties.setProperty(PRO_NAMESPACE_KEY, System.getProperty(PRO_NAMESPACE_KEY));
         } else {
+            // 不存在, 从配置文件中获取'config.nacos.namespace'
             String namespace = FILE_CONFIG.getConfig(getNacosNameSpaceFileKey());
             if (null == namespace) {
                 namespace = DEFAULT_NAMESPACE;
@@ -207,16 +217,28 @@ public class NacosConfiguration extends AbstractConfiguration {
         return properties;
     }
 
+    /**
+     * @return 'config.nacos.namespace'
+     */
     private static String getNacosNameSpaceFileKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, PRO_NAMESPACE_KEY);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, PRO_NAMESPACE_KEY);
     }
 
+    /**
+     * @return 'config.nacos.serverAddr'
+     */
     private static String getNacosAddrFileKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, PRO_SERVER_ADDR_KEY);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, PRO_SERVER_ADDR_KEY);
     }
 
+    /**
+     * @return 'config.nacos.group'
+     */
     private static String getNacosGroupKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, GROUP_KEY);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_CONFIG, CONFIG_TYPE, GROUP_KEY);
     }
 
     private static String getNacosUserName() {
@@ -267,8 +289,9 @@ public class NacosConfiguration extends AbstractConfiguration {
 
         @Override
         public void innerReceive(String dataId, String group, String configInfo) {
-            ConfigurationChangeEvent event = new ConfigurationChangeEvent().setDataId(dataId).setNewValue(configInfo)
-                .setNamespace(group);
+            ConfigurationChangeEvent event = new ConfigurationChangeEvent()
+                .setDataId(dataId).setNewValue(configInfo).setNamespace(group);
+            // 处理事件
             listener.onProcessEvent(event);
         }
     }

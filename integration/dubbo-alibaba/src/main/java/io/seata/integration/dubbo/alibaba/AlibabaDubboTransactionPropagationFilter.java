@@ -40,11 +40,16 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         if (!DubboConstants.ALIBABADUBBO) {
+            // 非阿里Dubbo, 执行原始方法
             return invoker.invoke(invocation);
         }
+        // Consumer 调用 Provider时有
+        // 事务ID
         String xid = RootContext.getXID();
+        // 事务拦截类型
         String xidInterceptorType = RootContext.getXIDInterceptorType();
 
+        // Provider 被 Consumer 调用时有
         String rpcXid = getRpcXid();
         String rpcXidInterceptorType = RpcContext.getContext().getAttachment(RootContext.KEY_XID_INTERCEPTOR_TYPE);
         if (LOGGER.isDebugEnabled()) {
@@ -52,11 +57,14 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
         }
         boolean bind = false;
         if (xid != null) {
+            // RPC上下文设置参数
             RpcContext.getContext().setAttachment(RootContext.KEY_XID, xid);
             RpcContext.getContext().setAttachment(RootContext.KEY_XID_INTERCEPTOR_TYPE, xidInterceptorType);
         } else {
             if (rpcXid != null) {
+                // 绑定RPC事务
                 RootContext.bind(rpcXid);
+                // 绑定RPC事务拦截类型
                 RootContext.bindInterceptorType(rpcXidInterceptorType);
                 bind = true;
                 if (LOGGER.isDebugEnabled()) {
@@ -65,23 +73,25 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
             }
         }
         try {
+            // 执行原始方法
             return invoker.invoke(invocation);
-
         } finally {
             if (bind) {
+                // 解绑拦截类型
                 String unbindInterceptorType = RootContext.unbindInterceptorType();
+                // 解绑事务
                 String unbindXid = RootContext.unbind();
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("unbind[{}] interceptorType[{}] from RootContext", unbindXid, unbindInterceptorType);
                 }
                 if (!rpcXid.equalsIgnoreCase(unbindXid)) {
-                    LOGGER.warn("xid in change during RPC from {} to {}, xidInterceptorType from {} to {} ", rpcXid,
-                        unbindXid, rpcXidInterceptorType, unbindInterceptorType);
+                    LOGGER.warn("xid in change during RPC from {} to {}, xidInterceptorType from {} to {} ",
+                        rpcXid, unbindXid, rpcXidInterceptorType, unbindInterceptorType);
                     if (unbindXid != null) {
                         RootContext.bind(unbindXid);
                         RootContext.bindInterceptorType(unbindInterceptorType);
-                        LOGGER.warn("bind [{}] interceptorType[{}] back to RootContext", unbindXid,
-                            unbindInterceptorType);
+                        LOGGER.warn("bind [{}] interceptorType[{}] back to RootContext",
+                            unbindXid, unbindInterceptorType);
                     }
                 }
             }

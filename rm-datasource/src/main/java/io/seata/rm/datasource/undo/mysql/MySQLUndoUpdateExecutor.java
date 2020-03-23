@@ -47,19 +47,23 @@ public class MySQLUndoUpdateExecutor extends AbstractUndoExecutor {
      */
     @Override
     protected String buildUndoSQL() {
+        // SQL执行前镜像
         TableRecords beforeImage = sqlUndoLog.getBeforeImage();
         List<Row> beforeImageRows = beforeImage.getRows();
         if (CollectionUtils.isEmpty(beforeImageRows)) {
-            throw new ShouldNeverHappenException("Invalid UNDO LOG"); // TODO
+            // 如果操作字段为空, 直接throw
+            throw new ShouldNeverHappenException("Invalid UNDO LOG");
         }
         Row row = beforeImageRows.get(0);
         Field pkField = row.primaryKeys().get(0);
         List<Field> nonPkFields = row.nonPrimaryKeys();
         // update sql undo log before image all field come from table meta. need add escape.
         // see BaseTransactionalExecutor#buildTableRecords
+        // 需要更新的字段
         String updateColumns = nonPkFields.stream()
             .map(field -> ColumnUtils.addEscape(field.getName(), JdbcConstants.MYSQL) + " = ?")
             .collect(Collectors.joining(", "));
+        // 正则组装SQL
         return String.format(UPDATE_SQL_TEMPLATE, sqlUndoLog.getTableName(), updateColumns,
                 ColumnUtils.addEscape(pkField.getName(), JdbcConstants.MYSQL));
     }

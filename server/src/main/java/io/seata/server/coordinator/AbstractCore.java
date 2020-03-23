@@ -68,16 +68,23 @@ public abstract class AbstractCore implements Core {
     @Override
     public Long branchRegister(BranchType branchType, String resourceId, String clientId, String xid,
                                String applicationData, String lockKeys) throws TransactionException {
+        // 获取全局事务(事务ID)
         GlobalSession globalSession = assertGlobalSessionNotNull(xid, false);
         return SessionHolder.lockAndExecute(globalSession, () -> {
+            // 事务状态监测
             globalSessionStatusCheck(globalSession);
+            // 添加生命周期更改监听器, 在注册Branch前, 及时调用相应事件, 已备监听器作出响应处理
             globalSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
-            BranchSession branchSession = SessionHelper.newBranchByGlobal(globalSession, branchType, resourceId,
-                    applicationData, lockKeys, clientId);
+            // 封装Branch事务
+            BranchSession branchSession = SessionHelper
+                .newBranchByGlobal(globalSession, branchType, resourceId, applicationData, lockKeys, clientId);
+            // Branch事务加锁
             branchSessionLock(globalSession, branchSession);
             try {
+                // 全局事务添加Branch事务
                 globalSession.addBranch(branchSession);
             } catch (RuntimeException ex) {
+                // Branch事务解锁
                 branchSessionUnlock(branchSession);
                 throw new BranchTransactionException(FailedToAddBranch, String
                         .format("Failed to store branch xid = %s branchId = %s", globalSession.getXid(),
@@ -89,16 +96,25 @@ public abstract class AbstractCore implements Core {
         });
     }
 
+    /**
+     * 全局事务状态检测
+     * @param globalSession
+     * @throws GlobalTransactionException
+     */
     protected void globalSessionStatusCheck(GlobalSession globalSession) throws GlobalTransactionException {
         if (!globalSession.isActive()) {
-            throw new GlobalTransactionException(GlobalTransactionNotActive, String
-                    .format("Could not register branch into global session xid = %s status = %s",
-                            globalSession.getXid(), globalSession.getStatus()));
+            // 全局事务不处于激活状态
+            throw new GlobalTransactionException(GlobalTransactionNotActive,
+                String.format("Could not register branch into global session xid = %s status = %s",
+                            globalSession.getXid(), globalSession.getStatus())
+            );
         }
         if (globalSession.getStatus() != GlobalStatus.Begin) {
-            throw new GlobalTransactionException(GlobalTransactionStatusInvalid, String
-                    .format("Could not register branch into global session xid = %s status = %s while expecting %s",
-                            globalSession.getXid(), globalSession.getStatus(), GlobalStatus.Begin));
+            // 当前全局事务不处于开始阶段
+            throw new GlobalTransactionException(GlobalTransactionStatusInvalid,
+                String.format("Could not register branch into global session xid = %s status = %s while expecting %s",
+                    globalSession.getXid(), globalSession.getStatus(), GlobalStatus.Begin)
+            );
         }
     }
 
@@ -110,6 +126,13 @@ public abstract class AbstractCore implements Core {
 
     }
 
+    /**
+     * 获取全局事务(不可为空)
+     * @param xid 全局事务ID
+     * @param withBranchSessions 是否查询Branch事务
+     * @return
+     * @throws TransactionException
+     */
     private GlobalSession assertGlobalSessionNotNull(String xid, boolean withBranchSessions)
             throws TransactionException {
         GlobalSession globalSession = SessionHolder.findGlobalSession(xid, withBranchSessions);
@@ -123,13 +146,15 @@ public abstract class AbstractCore implements Core {
     @Override
     public void branchReport(BranchType branchType, String xid, long branchId, BranchStatus status,
                              String applicationData) throws TransactionException {
-        GlobalSession globalSession = assertGlobalSessionNotNull(xid, true);
-        BranchSession branchSession = globalSession.getBranch(branchId);
+        GlobalSession globalSession = assertGlobalSessionNotNull(xid, true); // 全局事务
+        BranchSession branchSession = globalSession.getBranch(branchId); // Branch事务
         if (branchSession == null) {
             throw new BranchTransactionException(BranchTransactionNotExist,
                     String.format("Could not found branch session xid = %s branchId = %s", xid, branchId));
         }
+        // 添加生命周期更改监听器, 在改变事务状态后, 及时调用相应事件, 已备监听器作出响应处理
         globalSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+        // 改变Branch状态
         globalSession.changeBranchStatus(branchSession, status);
 
         LOGGER.info("Successfully branch report xid = {}, branchId = {}", globalSession.getXid(),
@@ -145,12 +170,14 @@ public abstract class AbstractCore implements Core {
     @Override
     public BranchStatus branchCommit(GlobalSession globalSession, BranchSession branchSession) throws TransactionException {
         try {
+            // 封装请求参数
             BranchCommitRequest request = new BranchCommitRequest();
             request.setXid(branchSession.getXid());
             request.setBranchId(branchSession.getBranchId());
             request.setResourceId(branchSession.getResourceId());
             request.setApplicationData(branchSession.getApplicationData());
             request.setBranchType(branchSession.getBranchType());
+            // Branch提交(发送消息到RM通知执行提交)
             return branchCommitSend(request, globalSession, branchSession);
         } catch (IOException | TimeoutException e) {
             throw new BranchTransactionException(FailedToSendBranchCommitRequest,
@@ -161,32 +188,37 @@ public abstract class AbstractCore implements Core {
 
     protected BranchStatus branchCommitSend(BranchCommitRequest request, GlobalSession globalSession,
                                             BranchSession branchSession) throws IOException, TimeoutException {
-        BranchCommitResponse response = (BranchCommitResponse) messageSender.sendSyncRequest(
-                branchSession.getResourceId(), branchSession.getClientId(), request);
+        // 发送提交消息
+        BranchCommitResponse response = (BranchCommitResponse) messageSender
+            .sendSyncRequest(branchSession.getResourceId(), branchSession.getClientId(), request);
         return response.getBranchStatus();
     }
 
     @Override
     public BranchStatus branchRollback(GlobalSession globalSession, BranchSession branchSession) throws TransactionException {
         try {
+            // 封装请求参数
             BranchRollbackRequest request = new BranchRollbackRequest();
             request.setXid(branchSession.getXid());
             request.setBranchId(branchSession.getBranchId());
             request.setResourceId(branchSession.getResourceId());
             request.setApplicationData(branchSession.getApplicationData());
             request.setBranchType(branchSession.getBranchType());
+            // Branch回滚(发送消息到RM通知执行回滚)
             return branchRollbackSend(request, globalSession, branchSession);
         } catch (IOException | TimeoutException e) {
             throw new BranchTransactionException(FailedToSendBranchRollbackRequest,
                     String.format("Send branch rollback failed, xid = %s branchId = %s",
-                            branchSession.getXid(), branchSession.getBranchId()), e);
+                            branchSession.getXid(), branchSession.getBranchId()), e
+            );
         }
     }
 
     protected BranchStatus branchRollbackSend(BranchRollbackRequest request, GlobalSession globalSession,
                                               BranchSession branchSession) throws IOException, TimeoutException {
-        BranchRollbackResponse response = (BranchRollbackResponse) messageSender.sendSyncRequest(
-                branchSession.getResourceId(), branchSession.getClientId(), request);
+        // 发送回滚消息
+        BranchRollbackResponse response = (BranchRollbackResponse) messageSender
+            .sendSyncRequest(branchSession.getResourceId(), branchSession.getClientId(), request);
         return response.getBranchStatus();
     }
 

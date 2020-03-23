@@ -26,96 +26,115 @@ import java.util.Map;
 public enum GlobalStatus {
 
     /**
+     * 未知
      * Un known global status.
      */
     // Unknown
     UnKnown(0),
 
     /**
+     * 开始
+     * 允许新Branch注册
      * The Begin.
      */
     // PHASE 1: can accept new branch registering.
     Begin(1),
 
     /**
+     * 提交中
      * PHASE 2: Running Status: may be changed any time.
      */
     // Committing.
     Committing(2),
 
     /**
+     * 提交重试中
      * The Commit retrying.
      */
     // Retrying commit after a recoverable failure.
     CommitRetrying(3),
 
     /**
+     * 回滚中
      * Rollbacking global status.
      */
     // Rollbacking
     Rollbacking(4),
 
     /**
+     * 回滚重试中
      * The Rollback retrying.
      */
     // Retrying rollback after a recoverable failure.
     RollbackRetrying(5),
 
     /**
+     * 超时回滚中
      * The Timeout rollbacking.
      */
     // Rollbacking since timeout
     TimeoutRollbacking(6),
 
     /**
+     * 超时回滚重试中
      * The Timeout rollback retrying.
      */
     // Retrying rollback (since timeout) after a recoverable failure.
     TimeoutRollbackRetrying(7),
 
     /**
+     * 异步提交中
      * All branches can be async committed. The committing is NOT done yet, but it can be seen as committed for TM/RM
      * client.
      */
     AsyncCommitting(8),
 
     /**
+     * 已提交
+     * 全局事务已提交
      * PHASE 2: Final Status: will NOT change any more.
      */
     // Finally: global transaction is successfully committed.
     Committed(9),
 
     /**
+     * 提交失败
      * The Commit failed.
      */
     // Finally: failed to commit
     CommitFailed(10),
 
     /**
+     * 已回滚
+     * 全局事务已回滚
      * The Rollbacked.
      */
     // Finally: global transaction is successfully rollbacked.
     Rollbacked(11),
 
     /**
+     * 回滚失败
      * The Rollback failed.
      */
     // Finally: failed to rollback
     RollbackFailed(12),
 
     /**
+     * 已超时回滚
      * The Timeout rollbacked.
      */
     // Finally: global transaction is successfully rollbacked since timeout.
     TimeoutRollbacked(13),
 
     /**
+     * 超时回滚失败
      * The Timeout rollback failed.
      */
     // Finally: failed to rollback since timeout
     TimeoutRollbackFailed(14),
 
     /**
+     * 完成
      * The Finished.
      */
     // Not managed in session MAP any more

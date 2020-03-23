@@ -76,41 +76,70 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
         return instance;
     }
 
+    /**
+     * 注册节点
+     * @param address the address
+     */
     @Override
     public void register(InetSocketAddress address) throws Exception {
         validAddress(address);
-        getNamingInstance().registerInstance(PRO_SERVER_ADDR_KEY, address.getAddress().getHostAddress(), address.getPort(), getClusterName());
+        getNamingInstance()
+            .registerInstance(PRO_SERVER_ADDR_KEY, address.getAddress().getHostAddress(), address.getPort(), getClusterName());
     }
 
+    /**
+     * 取消注册节点
+     * @param address the address
+     * @throws Exception
+     */
     @Override
     public void unregister(InetSocketAddress address) throws Exception {
         validAddress(address);
-        getNamingInstance().deregisterInstance(PRO_SERVER_ADDR_KEY, address.getAddress().getHostAddress(), address.getPort(), getClusterName());
+        getNamingInstance()
+            .deregisterInstance(PRO_SERVER_ADDR_KEY, address.getAddress().getHostAddress(), address.getPort(), getClusterName());
     }
 
+    /**
+     * 添加监听器
+     * @param cluster  the cluster
+     * @param listener the listener
+     * @throws Exception
+     */
     @Override
     public void subscribe(String cluster, EventListener listener) throws Exception {
         List<String> clusters = new ArrayList<>();
         clusters.add(cluster);
+        // 缓存
         LISTENER_SERVICE_MAP.putIfAbsent(cluster, new ArrayList<>());
         LISTENER_SERVICE_MAP.get(cluster).add(listener);
+        // 订阅
         getNamingInstance().subscribe(PRO_SERVER_ADDR_KEY, clusters, listener);
     }
 
+    /**
+     * 去除监听器
+     */
     @Override
     public void unsubscribe(String cluster, EventListener listener) throws Exception {
         List<String> clusters = new ArrayList<>();
         clusters.add(cluster);
+        // 缓存的监听列表
         List<EventListener> subscribeList = LISTENER_SERVICE_MAP.get(cluster);
         if (null != subscribeList) {
+            // 过滤该集群下非该监听器的其他监听器
             List<EventListener> newSubscribeList = subscribeList.stream()
                     .filter(eventListener -> !eventListener.equals(listener))
                     .collect(Collectors.toList());
+            // 覆盖...
             LISTENER_SERVICE_MAP.put(cluster, newSubscribeList);
         }
+        // 取消订阅
         getNamingInstance().unsubscribe(PRO_SERVER_ADDR_KEY, clusters, listener);
     }
 
+    /**
+     * 获取服务地址列表
+     */
     @Override
     public List<InetSocketAddress> lookup(String key) throws Exception {
         String clusterName = getServiceGroup(key);
@@ -118,23 +147,31 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
             return null;
         }
         if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
+            // 监听器缓存集合中不存在, 添加监听器
             synchronized (LOCK_OBJ) {
                 if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
                     List<String> clusters = new ArrayList<>();
                     clusters.add(clusterName);
+                    // 所有实例
                     List<Instance> firstAllInstances = getNamingInstance().getAllInstances(PRO_SERVER_ADDR_KEY, clusters);
                     if (null != firstAllInstances) {
+                        // 过滤筛选出 开启 && 健康的实例列表
                         List<InetSocketAddress> newAddressList = firstAllInstances.stream()
                                 .filter(instance -> instance.isEnabled() && instance.isHealthy())
                                 .map(instance -> new InetSocketAddress(instance.getIp(), instance.getPort()))
                                 .collect(Collectors.toList());
+                        // 缓存
                         CLUSTER_ADDRESS_MAP.put(clusterName, newAddressList);
                     }
+                    // 添加订阅者, 监听实例改变事件
                     subscribe(clusterName, event -> {
+                        // 改变的实例
                         List<Instance> instances = ((NamingEvent)event).getInstances();
                         if (null == instances && null != CLUSTER_ADDRESS_MAP.get(clusterName)) {
+                            // 不包含, 则清除集群对应的缓存
                             CLUSTER_ADDRESS_MAP.remove(clusterName);
                         } else if (!CollectionUtils.isEmpty(instances)) {
+                            // 过滤筛选, 缓存
                             List<InetSocketAddress> newAddressList = instances.stream()
                                     .filter(instance -> instance.isEnabled() && instance.isHealthy())
                                     .map(instance -> new InetSocketAddress(instance.getIp(), instance.getPort()))
@@ -145,6 +182,7 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
                 }
             }
         }
+        // 缓存集合中获取
         return CLUSTER_ADDRESS_MAP.get(clusterName);
     }
 
@@ -153,6 +191,9 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
 
     }
 
+    /**
+     * 效验注册地址
+     */
     private void validAddress(InetSocketAddress address) {
         if (null == address.getHostName() || 0 == address.getPort()) {
             throw new IllegalArgumentException("invalid address:" + address);
@@ -178,14 +219,19 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
 
     private static Properties getNamingProperties() {
         Properties properties = new Properties();
+        // server_addr
         if (null != System.getProperty(PRO_SERVER_ADDR_KEY)) {
+            // 系统属性中存在, 从系统属性中获取
             properties.setProperty(PRO_SERVER_ADDR_KEY, System.getProperty(PRO_SERVER_ADDR_KEY));
         } else {
+            // 从配置文件中获取
             String address = FILE_CONFIG.getConfig(getNacosAddrFileKey());
             if (null != address) {
                 properties.setProperty(PRO_SERVER_ADDR_KEY, address);
             }
         }
+
+        // 命名空间 namespace
         if (null != System.getProperty(PRO_NAMESPACE_KEY)) {
             properties.setProperty(PRO_NAMESPACE_KEY, System.getProperty(PRO_NAMESPACE_KEY));
         } else {
@@ -216,16 +262,28 @@ public class NacosRegistryServiceImpl implements RegistryService<EventListener> 
         return cluster;
     }
 
+    /**
+     * @return "registry.nacos.serverAddr"
+     */
     private static String getNacosAddrFileKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, PRO_SERVER_ADDR_KEY);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, PRO_SERVER_ADDR_KEY);
     }
 
+    /**
+     * @return "registry.nacos.namespace"
+     */
     private static String getNacosNameSpaceFileKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, PRO_NAMESPACE_KEY);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, PRO_NAMESPACE_KEY);
     }
 
+    /**
+     * @return "registry.nacos.cluster"
+     */
     private static String getNacosClusterFileKey() {
-        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, REGISTRY_CLUSTER);
+        return String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+            ConfigurationKeys.FILE_ROOT_REGISTRY, REGISTRY_TYPE, REGISTRY_CLUSTER);
     }
 
     private static String getNacosUserName() {

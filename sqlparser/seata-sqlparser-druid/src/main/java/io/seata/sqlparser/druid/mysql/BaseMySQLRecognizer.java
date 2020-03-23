@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
+ * 基础MySQL识别器
  * @author will
  */
 public abstract class BaseMySQLRecognizer extends BaseRecognizer {
@@ -64,6 +65,9 @@ public abstract class BaseMySQLRecognizer extends BaseRecognizer {
         };
     }
 
+    /**
+     * 获取Where条件
+     */
     public String getWhereCondition(SQLExpr where, final ParametersHolder parametersHolder,
                                     final ArrayList<List<Object>> paramAppenderList) {
         if (Objects.isNull(where)) {
@@ -78,6 +82,7 @@ public abstract class BaseMySQLRecognizer extends BaseRecognizer {
 
     public String getWhereCondition(SQLExpr where) {
         if (Objects.isNull(where)) {
+            // 如果为空, 直接返回
             return StringUtils.EMPTY;
         }
 

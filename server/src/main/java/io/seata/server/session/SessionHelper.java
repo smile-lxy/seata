@@ -86,18 +86,23 @@ public class SessionHelper {
      * @throws TransactionException the transaction exception
      */
     public static void endCommitted(GlobalSession globalSession) throws TransactionException {
+        // 改变事务状态
         globalSession.changeStatus(GlobalStatus.Committed);
+        // 结束事务
         globalSession.end();
     }
 
     /**
+     * 结束提交失败
      * End commit failed.
      *
      * @param globalSession the global session
      * @throws TransactionException the transaction exception
      */
     public static void endCommitFailed(GlobalSession globalSession) throws TransactionException {
+        // 改变事务状态
         globalSession.changeStatus(GlobalStatus.CommitFailed);
+        // 结束事务(移除全局事务记录)
         globalSession.end();
     }
 
@@ -108,12 +113,14 @@ public class SessionHelper {
      * @throws TransactionException the transaction exception
      */
     public static void endRollbacked(GlobalSession globalSession) throws TransactionException {
+        // 改变事务状态
         GlobalStatus currentStatus = globalSession.getStatus();
         if (isTimeoutGlobalStatus(currentStatus)) {
             globalSession.changeStatus(GlobalStatus.TimeoutRollbacked);
         } else {
             globalSession.changeStatus(GlobalStatus.Rollbacked);
         }
+        // 结束事务(移除全局事务记录)
         globalSession.end();
     }
 
@@ -130,6 +137,7 @@ public class SessionHelper {
         } else {
             globalSession.changeStatus(GlobalStatus.RollbackFailed);
         }
+        // 结束事务(移除全局事务记录)
         globalSession.end();
     }
 

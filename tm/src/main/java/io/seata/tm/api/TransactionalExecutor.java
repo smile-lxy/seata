@@ -33,6 +33,7 @@ public interface TransactionalExecutor {
     Object execute() throws Throwable;
 
     /**
+     * 获取事务信息
      * transaction conf or other attr
      * @return
      */

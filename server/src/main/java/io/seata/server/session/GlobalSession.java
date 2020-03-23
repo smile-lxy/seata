@@ -49,8 +49,8 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     private static final int MAX_GLOBAL_SESSION_SIZE = StoreConfig.getMaxGlobalSessionSize();
 
-    private static ThreadLocal<ByteBuffer> byteBufferThreadLocal = ThreadLocal.withInitial(() -> ByteBuffer.allocate(
-        MAX_GLOBAL_SESSION_SIZE));
+    private static ThreadLocal<ByteBuffer> byteBufferThreadLocal =
+        ThreadLocal.withInitial(() -> ByteBuffer.allocate(MAX_GLOBAL_SESSION_SIZE));
 
     private String xid;
 
@@ -100,6 +100,8 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     private Set<SessionLifecycleListener> lifecycleListeners = new HashSet<>();
 
     /**
+     * 是否允许异步提交事务
+     * 默认: 非TCC模式下, 允许异步提交
      * Can be committed async boolean.
      *
      * @return the boolean
@@ -148,6 +150,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         this.beginTime = System.currentTimeMillis();
         this.active = true;
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 通知相关监听者(存储)
             lifecycleListener.onBegin(this);
         }
     }
@@ -156,6 +159,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     public void changeStatus(GlobalStatus status) throws TransactionException {
         this.status = status;
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 通知相关监听者
             lifecycleListener.onStatusChange(this, status);
         }
 
@@ -166,6 +170,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         throws TransactionException {
         branchSession.setStatus(status);
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 通知相关监听者(修改Branch事务状态)
             lifecycleListener.onBranchStatusChange(this, branchSession, status);
         }
     }
@@ -179,6 +184,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     public void close() throws TransactionException {
         if (active) {
             for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+                // 通知相关监听者
                 lifecycleListener.onClose(this);
             }
         }
@@ -186,18 +192,20 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
     @Override
     public void end() throws TransactionException {
+        // 清除事务锁
         // Clean locks first
         clean();
 
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 通知相关监听者(移除全局事务记录)
             lifecycleListener.onEnd(this);
         }
 
     }
 
     public void clean() throws TransactionException {
+        // 释放事务锁(释放Branch锁)
         LockerManagerFactory.getLockManager().releaseGlobalSessionLock(this);
-
     }
 
     /**
@@ -206,9 +214,8 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      * @throws TransactionException the transaction exception
      */
     public void closeAndClean() throws TransactionException {
-        close();
-        clean();
-
+        close(); // 通知监听者
+        clean(); // 释放Branch锁
     }
 
     /**
@@ -232,18 +239,24 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     @Override
     public void addBranch(BranchSession branchSession) throws TransactionException {
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 监听器通知事件, 由提供者执行相应操作
             lifecycleListener.onAddBranch(this, branchSession);
         }
+        // 设置Branch事务状态
         branchSession.setStatus(BranchStatus.Registered);
+        // Branch事务添加到全局事务中
         add(branchSession);
     }
 
     @Override
     public void removeBranch(BranchSession branchSession) throws TransactionException {
         for (SessionLifecycleListener lifecycleListener : lifecycleListeners) {
+            // 监听器通知事件, 由提供者执行相应操作(移除Branch事务记录)
             lifecycleListener.onRemoveBranch(this, branchSession);
         }
+        // 释放分支锁
         branchSession.unlock();
+        // 移除分支事务
         remove(branchSession);
     }
 
@@ -276,6 +289,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     }
 
     /**
+     * 反转Branch列表
      * Gets reverse sorted branches.
      *
      * @return the reverse sorted branches
@@ -609,6 +623,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
 
         public void lock() throws TransactionException {
             try {
+                // 尝试加锁
                 if (globalSessionLock.tryLock(GLOBAL_SESSION_LOCK_TIME_OUT_MILLS, TimeUnit.MILLISECONDS)) {
                     return;
                 }
@@ -619,6 +634,7 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
         }
 
         public void unlock() {
+            // 解锁
             globalSessionLock.unlock();
         }
 
@@ -641,20 +657,40 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
     }
 
     public void asyncCommit() throws TransactionException {
+        // 添加生命周期更改监听器, 在异步提交事务后, 及时调用相应事件, 已备监听器作出响应处理
         this.addSessionLifecycleListener(SessionHolder.getAsyncCommittingSessionManager());
+        /**
+         * 记录该事件, 后续定时任务将执行具体操作
+         * @see io.seata.server.coordinator.DefaultCoordinator#handleAsyncCommitting()
+         */
         SessionHolder.getAsyncCommittingSessionManager().addGlobalSession(this);
+        // 改变事务状态
         this.changeStatus(GlobalStatus.AsyncCommitting);
     }
 
+    /**
+     * 查询并重试提交
+     * @throws TransactionException
+     */
     public void queueToRetryCommit() throws TransactionException {
+        // 添加生命周期更改监听器, 在重试提交事务前后, 及时调用相应事件, 已备监听器作出响应处理
         this.addSessionLifecycleListener(SessionHolder.getRetryCommittingSessionManager());
+        // 记录该事件, 后续定时任务将执行
         SessionHolder.getRetryCommittingSessionManager().addGlobalSession(this);
+        // 改变事务状态
         this.changeStatus(GlobalStatus.CommitRetrying);
     }
 
+    /**
+     *  查询并重试回滚
+     * @throws TransactionException
+     */
     public void queueToRetryRollback() throws TransactionException {
+        // 添加生命周期更改监听器, 在重试回滚事务前后, 及时调用相应事件, 已备监听器作出响应处理
         this.addSessionLifecycleListener(SessionHolder.getRetryRollbackingSessionManager());
+        // 记录该事件, 后续定时任务将执行
         SessionHolder.getRetryRollbackingSessionManager().addGlobalSession(this);
+        // 改变事务状态
         GlobalStatus currentStatus = this.getStatus();
         if (SessionHelper.isTimeoutGlobalStatus(currentStatus)) {
             this.changeStatus(GlobalStatus.TimeoutRollbackRetrying);

@@ -81,8 +81,8 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
     private final String applicationId;
     private final String txServiceGroup;
     private final int mode;
-    private final boolean disableGlobalTransaction = ConfigurationFactory.getInstance().getBoolean(
-        ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION, DEFAULT_DISABLE_GLOBAL_TRANSACTION);
+    private final boolean disableGlobalTransaction = ConfigurationFactory.getInstance()
+        .getBoolean(ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION, DEFAULT_DISABLE_GLOBAL_TRANSACTION);
 
     private final FailureHandler failureHandlerHook;
 
@@ -169,12 +169,12 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         if (StringUtils.isNullOrEmpty(applicationId) || StringUtils.isNullOrEmpty(txServiceGroup)) {
             throw new IllegalArgumentException(String.format("applicationId: %s, txServiceGroup: %s", applicationId, txServiceGroup));
         }
-        //init TM
+        //init TM 初始化TM
         TMClient.init(applicationId, txServiceGroup);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Transaction Manager Client is initialized. applicationId[{}] txServiceGroup[{}]", applicationId, txServiceGroup);
         }
-        //init RM
+        //init RM 初始化RM
         RMClient.init(applicationId, txServiceGroup);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Resource Manager is initialized. applicationId[{}] txServiceGroup[{}]", applicationId, txServiceGroup);
@@ -183,45 +183,59 @@ public class GlobalTransactionScanner extends AbstractAutoProxyCreator
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Global Transaction Clients are initialized. ");
         }
+        // 注册Spring关闭钩子
         registerSpringShutdownHook();
 
     }
 
+    /**
+     * 注册钩子, 关闭时调用 Disposable#destroy
+     */
     private void registerSpringShutdownHook() {
         if (applicationContext instanceof ConfigurableApplicationContext) {
             ((ConfigurableApplicationContext) applicationContext).registerShutdownHook();
+            // 清除钩子
             ShutdownHook.removeRuntimeShutdownHook();
         }
+        // 注册TM关闭钩子
         ShutdownHook.getInstance().addDisposable(TmRpcClient.getInstance(applicationId, txServiceGroup));
+        // 注册RM关闭钩子
         ShutdownHook.getInstance().addDisposable(RmRpcClient.getInstance(applicationId, txServiceGroup));
     }
 
+    /**
+     * 代理
+     */
     @Override
     protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
+        // 禁止全局事务
         if (disableGlobalTransaction) {
             return bean;
         }
         try {
             synchronized (PROXYED_SET) {
+                // 已代理, 返回
                 if (PROXYED_SET.contains(beanName)) {
                     return bean;
                 }
                 interceptor = null;
                 //check TCC proxy
                 if (TCCBeanParserUtils.isTccAutoProxy(bean, beanName, applicationContext)) {
+                    // 是否是TCC代理, 封装针对TCC事务的拦截器
                     //TCC interceptor, proxy bean of sofa:reference/dubbo:reference, and LocalTCC
                     interceptor = new TccActionInterceptor(TCCBeanParserUtils.getRemotingDesc(beanName));
                 } else {
                     Class<?> serviceInterface = SpringProxyUtils.findTargetClass(bean);
                     Class<?>[] interfacesIfJdk = SpringProxyUtils.findInterfaces(bean);
 
-                    if (!existsAnnotation(new Class[]{serviceInterface})
-                        && !existsAnnotation(interfacesIfJdk)) {
+                    if (!existsAnnotation(new Class[]{serviceInterface}) && !existsAnnotation(interfacesIfJdk)) {
+                        // 类方法上不存在指定注解, 直接返回
                         return bean;
                     }
 
                     if (interceptor == null) {
                         interceptor = new GlobalTransactionalInterceptor(failureHandlerHook);
+                        // 添加配置文件监听器
                         ConfigurationFactory.getInstance().addConfigListener(ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION, (ConfigurationChangeListener) interceptor);
                     }
                 }

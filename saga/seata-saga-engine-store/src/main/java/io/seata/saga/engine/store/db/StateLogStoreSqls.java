@@ -118,6 +118,7 @@ public class StateLogStoreSqls {
 
     public StateLogStoreSqls(String tablePrefix) {
         this.tablePrefix = tablePrefix;
+        // 初始化
         init();
     }
 

@@ -100,8 +100,11 @@ public class SagaCore extends AbstractCore {
     @Override
     public boolean doGlobalCommit(GlobalSession globalSession, boolean retrying) throws TransactionException {
         try {
-            BranchStatus branchStatus = branchCommit(globalSession, SessionHelper.newBranch(BranchType.SAGA,
-                    globalSession.getXid(), -1, getSagaResourceId(globalSession), globalSession.getStatus().name()));
+            // 分支事务提交(TC通知Branch事务相关的RM进行事务提交)
+            BranchStatus branchStatus = branchCommit(globalSession,
+                SessionHelper.newBranch(BranchType.SAGA,
+                    globalSession.getXid(), -1, getSagaResourceId(globalSession), globalSession.getStatus().name())
+            );
 
             switch (branchStatus) {
                 case PhaseTwo_Committed:
@@ -158,11 +161,15 @@ public class SagaCore extends AbstractCore {
     @Override
     public boolean doGlobalRollback(GlobalSession globalSession, boolean retrying) throws TransactionException {
         try {
-            BranchStatus branchStatus = branchRollback(globalSession, SessionHelper.newBranch(BranchType.SAGA,
-                    globalSession.getXid(), -1, getSagaResourceId(globalSession), globalSession.getStatus().name()));
+            // 分支事务回滚(TC通知Branch事务相关的RM进行回滚)
+            BranchStatus branchStatus = branchRollback(globalSession,
+                SessionHelper.newBranch(BranchType.SAGA,
+                    globalSession.getXid(), -1, getSagaResourceId(globalSession), globalSession.getStatus().name())
+            );
 
             switch (branchStatus) {
                 case PhaseTwo_Rollbacked:
+                    // 移除所有分支事务
                     removeAllBranches(globalSession);
                     LOGGER.info("Successfully rollbacked SAGA global[{}]",globalSession.getXid());
                     break;
@@ -178,6 +185,7 @@ public class SagaCore extends AbstractCore {
                 default:
                     LOGGER.error("Failed to rollback SAGA global[{}]", globalSession.getXid());
                     if (!retrying) {
+                        // 查询并重试回滚
                         globalSession.queueToRetryRollback();
                     }
                     return false;
@@ -195,24 +203,31 @@ public class SagaCore extends AbstractCore {
     @Override
     public void doGlobalReport(GlobalSession globalSession, String xid, GlobalStatus globalStatus) throws TransactionException {
         if (GlobalStatus.Committed.equals(globalStatus)) {
+            // 已提交
             removeAllBranches(globalSession);
             SessionHelper.endCommitted(globalSession);
             LOGGER.info("Global[{}] committed", globalSession.getXid());
         } else if (GlobalStatus.Rollbacked.equals(globalStatus)
+            // 已回滚, 已完成
                 || GlobalStatus.Finished.equals(globalStatus)) {
             removeAllBranches(globalSession);
             SessionHelper.endRollbacked(globalSession);
+            // 结束回滚
             LOGGER.info("Global[{}] rollbacked", globalSession.getXid());
         } else {
             globalSession.changeStatus(globalStatus);
+            // 改变事务状态
             LOGGER.info("Global[{}] reporting is successfully done. status[{}]", globalSession.getXid(), globalSession.getStatus());
 
+            // 回滚重试中, 超时重试中, 未知
             if (GlobalStatus.RollbackRetrying.equals(globalStatus)
                     || GlobalStatus.TimeoutRollbackRetrying.equals(globalStatus)
                     || GlobalStatus.UnKnown.equals(globalStatus)) {
+                //  查询并重试回滚
                 globalSession.queueToRetryRollback();
                 LOGGER.info("Global[{}] will retry rollback", globalSession.getXid());
             } else if (GlobalStatus.CommitRetrying.equals(globalStatus)) {
+                // 查询并重新重试提交
                 globalSession.queueToRetryCommit();
                 LOGGER.info("Global[{}] will retry commit", globalSession.getXid());
             }
@@ -220,6 +235,7 @@ public class SagaCore extends AbstractCore {
     }
 
     /**
+     * 清除所有Branch事务
      * remove all branches
      *
      * @param globalSession the globalSession

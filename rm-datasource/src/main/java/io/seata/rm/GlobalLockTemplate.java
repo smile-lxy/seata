@@ -38,12 +38,14 @@ public class GlobalLockTemplate<T> {
 
         Object rs;
         try {
+            // 声明全局锁标识
             // add global lock declare
             RootContext.bindGlobalLockFlag();
 
             // Do Your Business
             rs = business.call();
         } finally {
+            // 解除全局锁标识
             //clean the global lock declare
             RootContext.unbindGlobalLockFlag();
         }

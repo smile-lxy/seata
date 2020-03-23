@@ -197,28 +197,26 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
     }
 
     protected StateMachineInstance forwardInternal(String stateMachineInstId, Map<String, Object> replaceParams,
-                                                   boolean skip, boolean async, AsyncCallback callback)
-        throws EngineExecutionException {
+        boolean skip, boolean async, AsyncCallback callback) throws EngineExecutionException {
 
+        // 重新加载状态机实例
         StateMachineInstance stateMachineInstance = reloadStateMachineInstance(stateMachineInstId);
 
         if (stateMachineInstance == null) {
-            throw new ForwardInvalidException("StateMachineInstance is not exits",
-                FrameworkErrorCode.StateMachineInstanceNotExists);
+            throw new ForwardInvalidException("StateMachineInstance is not exits", FrameworkErrorCode.StateMachineInstanceNotExists);
         }
-        if (ExecutionStatus.SU.equals(stateMachineInstance.getStatus())
-            && stateMachineInstance.getCompensationStatus() == null) {
+        if (ExecutionStatus.SU.equals(stateMachineInstance.getStatus()) && stateMachineInstance.getCompensationStatus() == null) {
             return stateMachineInstance;
         }
 
         ExecutionStatus[] acceptStatus = new ExecutionStatus[] {ExecutionStatus.FA, ExecutionStatus.UN, ExecutionStatus.RU};
+        // 状态检测
         checkStatus(stateMachineInstance, acceptStatus, null, stateMachineInstance.getStatus(), null, "forward");
 
         List<StateInstance> actList = stateMachineInstance.getStateList();
         if (actList == null || actList.size() == 0) {
             throw new ForwardInvalidException("StateMachineInstance[id:" + stateMachineInstId
-                + "] has no stateInstance, pls start a new StateMachine execution instead",
-                FrameworkErrorCode.OperationDenied);
+                + "] has no stateInstance, pls start a new StateMachine execution instead", FrameworkErrorCode.OperationDenied);
         }
 
         StateInstance lastForwardState = findOutLastForwardStateInstance(actList);
@@ -374,6 +372,7 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
     }
 
     /**
+     * 查找最后一个转发执行状态的状态实例
      * Find the last instance of the forward execution state
      *
      * @param stateInstanceList
@@ -384,18 +383,21 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
         for (int i = stateInstanceList.size() - 1; i >= 0; i--) {
             StateInstance stateInstance = stateInstanceList.get(i);
             if (!stateInstance.isForCompensation()) {
+                // 不处于补偿阶段(补偿id为空)
 
                 if (ExecutionStatus.SU.equals(stateInstance.getCompensationStatus())) {
                     continue;
                 }
 
                 if (DomainConstants.STATE_TYPE_SUB_STATE_MACHINE.equals(stateInstance.getType())) {
+                // 子状态机
 
                     StateInstance finalState = stateInstance;
 
                     while (StringUtils.hasText(finalState.getStateIdRetriedFor())) {
-                        finalState = stateMachineConfig.getStateLogStore().getStateInstance(
-                            finalState.getStateIdRetriedFor(), finalState.getMachineInstanceId());
+                        // 当前状态是重试状态, 重试分支下状态
+                        finalState = stateMachineConfig.getStateLogStore()
+                            .getStateInstance(finalState.getStateIdRetriedFor(), finalState.getMachineInstanceId());
                     }
 
                     List<StateMachineInstance> subInst = stateMachineConfig.getStateLogStore()
@@ -541,11 +543,12 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
      */
     @Override
     public StateMachineInstance reloadStateMachineInstance(String instId) {
-
+        // 状态机实例
         StateMachineInstance inst = stateMachineConfig.getStateLogStore().getStateMachineInstance(instId);
         if (inst != null) {
             StateMachine stateMachine = inst.getStateMachine();
             if (stateMachine == null) {
+                // 从Repository获取状态机
                 stateMachine = stateMachineConfig.getStateMachineRepository().getStateMachineById(inst.getMachineId());
                 inst.setStateMachine(stateMachine);
             }
@@ -556,6 +559,7 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
 
             List<StateInstance> stateList = inst.getStateList();
             if (stateList == null || stateList.size() == 0) {
+                // 状态实例集合(父 1 ~ n 子)
                 stateList = stateMachineConfig.getStateLogStore().queryStateInstanceListByMachineInstanceId(instId);
                 if (stateList != null && stateList.size() > 0) {
                     for (StateInstance tmpStateInstance : stateList) {
@@ -568,6 +572,7 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
     }
 
     /**
+     * 检查状态是否合法
      * Check if the status is legal
      *
      * @param stateMachineInstance
@@ -579,8 +584,7 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
      * @return
      */
     protected boolean checkStatus(StateMachineInstance stateMachineInstance, ExecutionStatus[] acceptStatus,
-                                  ExecutionStatus[] denyStatus, ExecutionStatus status, ExecutionStatus compenStatus,
-                                  String operation) {
+        ExecutionStatus[] denyStatus, ExecutionStatus status, ExecutionStatus compenStatus, String operation) {
         if (status != null && compenStatus != null) {
             throw new EngineExecutionException("status and compensationStatus are not supported at the same time",
                 FrameworkErrorCode.InvalidParameter);
@@ -590,25 +594,27 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
                 FrameworkErrorCode.InvalidParameter);
         }
         if (ExecutionStatus.SU.equals(compenStatus)) {
-            String message = buildExceptionMessage(stateMachineInstance, null, null, null, ExecutionStatus.SU,
-                operation);
+            // 补偿状态已成功
+            String message = buildExceptionMessage(stateMachineInstance, null, null, null, ExecutionStatus.SU, operation);
             throw new EngineExecutionException(message, FrameworkErrorCode.OperationDenied);
         }
 
-        if (stateMachineInstance.isRunning() && !EngineUtils.isTimeout(stateMachineInstance.getGmtUpdated(), stateMachineConfig.getTransOperationTimeout())) {
-            throw new EngineExecutionException(
-                "StateMachineInstance [id:" + stateMachineInstance.getId() + "] is running, operation[" + operation
-                    + "] denied", FrameworkErrorCode.OperationDenied);
+        if (stateMachineInstance.isRunning()
+            && !EngineUtils.isTimeout(stateMachineInstance.getGmtUpdated(), stateMachineConfig.getTransOperationTimeout())) {
+            // 运行中 && 未到超时时间
+            throw new EngineExecutionException("StateMachineInstance [id:" + stateMachineInstance.getId()
+                + "] is running, operation[" + operation + "] denied", FrameworkErrorCode.OperationDenied);
         }
 
         if ((denyStatus == null || denyStatus.length == 0) && (acceptStatus == null || acceptStatus.length == 0)) {
+        // 接受状态 拒绝状态 为空
             throw new EngineExecutionException("StateMachineInstance[id:" + stateMachineInstance.getId()
                 + "], acceptable status and deny status must input at least one", FrameworkErrorCode.InvalidParameter);
         }
 
         ExecutionStatus currentStatus = (status != null) ? status : compenStatus;
 
-        if (!(denyStatus == null || denyStatus.length == 0)) {
+        if (!(denyStatus == null || denyStatus.length == 0)) { // 拒绝状态为空
             for (ExecutionStatus tempDenyStatus : denyStatus) {
                 if (tempDenyStatus.compareTo(currentStatus) == 0) {
                     String message = buildExceptionMessage(stateMachineInstance, acceptStatus, denyStatus, status,
@@ -619,10 +625,11 @@ public class ProcessCtrlStateMachineEngine implements StateMachineEngine {
         }
 
         if (acceptStatus == null || acceptStatus.length == 0) {
+        // 接受状态为空
             return true;
         } else {
             for (ExecutionStatus tempStatus : acceptStatus) {
-                if (tempStatus.compareTo(currentStatus) == 0) {
+                if (tempStatus.compareTo(currentStatus) == 0) { // 当前状态与接受状态一样
                     return true;
                 }
             }

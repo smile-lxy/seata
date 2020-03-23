@@ -24,6 +24,7 @@ import org.springframework.core.type.AnnotationMetadata;
 import static io.seata.common.Constants.BEAN_NAME_SPRING_APPLICATION_CONTEXT_PROVIDER;
 
 /**
+ * 注册
  * @author xingfudeshi@gmail.com
  * The type spring application context provider registrar
  */
@@ -32,7 +33,11 @@ public class SpringApplicationContextProviderRegistrar implements ImportBeanDefi
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
         if (!registry.containsBeanDefinition(BEAN_NAME_SPRING_APPLICATION_CONTEXT_PROVIDER)) {
-            AbstractBeanDefinition beanDefinition = BeanDefinitionBuilder.genericBeanDefinition(SpringApplicationContextProvider.class).getBeanDefinition();
+            // 构建BeanDefinition
+            AbstractBeanDefinition beanDefinition = BeanDefinitionBuilder
+                .genericBeanDefinition(SpringApplicationContextProvider.class).getBeanDefinition();
+
+            // 注册BeanDefinition, 后面由Spring管理
             registry.registerBeanDefinition(BEAN_NAME_SPRING_APPLICATION_CONTEXT_PROVIDER, beanDefinition);
         }
     }

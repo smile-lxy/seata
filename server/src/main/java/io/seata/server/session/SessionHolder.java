@@ -67,9 +67,13 @@ public class SessionHolder {
      */
     public static final String DEFAULT_SESSION_STORE_FILE_DIR = "sessionStore";
 
+    // 默认事务管理器
     private static SessionManager ROOT_SESSION_MANAGER;
+    // 异步提交事务管理器
     private static SessionManager ASYNC_COMMITTING_SESSION_MANAGER;
+    // 重试提交事务管理器
     private static SessionManager RETRY_COMMITTING_SESSION_MANAGER;
+    // 重试回滚事务管理器
     private static SessionManager RETRY_ROLLBACKING_SESSION_MANAGER;
 
     /**
@@ -80,13 +84,13 @@ public class SessionHolder {
      */
     public static void init(String mode) throws IOException {
         if (StringUtils.isBlank(mode)) {
-            //use default
+            // 'store.mode'
             mode = CONFIG.getConfig(ConfigurationKeys.STORE_MODE);
         }
         //the store mode
         StoreMode storeMode = StoreMode.valueof(mode);
         if (StoreMode.DB.equals(storeMode)) {
-            //database store
+            //database store SPI机制加载
             ROOT_SESSION_MANAGER = EnhancedServiceLoader.load(SessionManager.class, StoreMode.DB.name());
             ASYNC_COMMITTING_SESSION_MANAGER = EnhancedServiceLoader.load(SessionManager.class, StoreMode.DB.name(),
                 new Object[] {ASYNC_COMMITTING_SESSION_MANAGER_NAME});
@@ -122,8 +126,10 @@ public class SessionHolder {
      */
     protected static void reload() {
         if (ROOT_SESSION_MANAGER instanceof Reloadable) {
+            // 对应提供者的reload
             ((Reloadable)ROOT_SESSION_MANAGER).reload();
 
+            // 所有事务
             Collection<GlobalSession> reloadedSessions = ROOT_SESSION_MANAGER.allSessions();
             if (reloadedSessions != null && !reloadedSessions.isEmpty()) {
                 reloadedSessions.forEach(globalSession -> {
@@ -140,7 +146,9 @@ public class SessionHolder {
                             throw new ShouldNeverHappenException("Reloaded Session should NOT be " + globalStatus);
                         case AsyncCommitting:
                             try {
+                                // 添加生命周期更改监听器, 在提交事务后, 及时调用相应事件, 已备监听器作出响应处理
                                 globalSession.addSessionLifecycleListener(getAsyncCommittingSessionManager());
+                                // 添加到异步提交任务处理器中
                                 getAsyncCommittingSessionManager().addGlobalSession(globalSession);
                             } catch (TransactionException e) {
                                 throw new ShouldNeverHappenException(e);
@@ -151,6 +159,7 @@ public class SessionHolder {
                             // Lock
                             branchSessions.forEach(branchSession -> {
                                 try {
+                                    // Branch事务加锁
                                     branchSession.lock();
                                 } catch (TransactionException e) {
                                     throw new ShouldNeverHappenException(e);
@@ -161,7 +170,9 @@ public class SessionHolder {
                                 case Committing:
                                 case CommitRetrying:
                                     try {
+                                        // 添加生命周期更改监听器, 在重试提交事务后, 及时调用相应事件, 已备监听器作出响应处理
                                         globalSession.addSessionLifecycleListener(getRetryCommittingSessionManager());
+                                        // 添加到重试提交任务处理器中
                                         getRetryCommittingSessionManager().addGlobalSession(globalSession);
                                     } catch (TransactionException e) {
                                         throw new ShouldNeverHappenException(e);
@@ -172,7 +183,9 @@ public class SessionHolder {
                                 case TimeoutRollbacking:
                                 case TimeoutRollbackRetrying:
                                     try {
+                                        // 添加生命周期更改监听器, 在重试回滚事务后, 及时调用相应事件, 已备监听器作出响应处理
                                         globalSession.addSessionLifecycleListener(getRetryRollbackingSessionManager());
+                                        // 添加到重试回滚处理器中
                                         getRetryRollbackingSessionManager().addGlobalSession(globalSession);
                                     } catch (TransactionException e) {
                                         throw new ShouldNeverHappenException(e);
@@ -256,8 +269,8 @@ public class SessionHolder {
     /**
      * Find global session.
      *
-     * @param xid                the xid
-     * @param withBranchSessions the withBranchSessions
+     * @param xid                the xid 全局事务ID
+     * @param withBranchSessions the withBranchSessions 是否查询Branch事务
      * @return the global session
      */
     public static GlobalSession findGlobalSession(String xid, boolean withBranchSessions) {

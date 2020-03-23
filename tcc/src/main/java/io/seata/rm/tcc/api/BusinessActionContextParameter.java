@@ -54,6 +54,7 @@ public @interface BusinessActionContextParameter {
     int index() default -1;
 
     /**
+     * 是否从对象属性中获取参数
      * if get the parameter from the property of the object ?
      *
      * @return boolean boolean

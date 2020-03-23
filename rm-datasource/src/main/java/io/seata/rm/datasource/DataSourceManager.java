@@ -76,15 +76,19 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
     public boolean lockQuery(BranchType branchType, String resourceId, String xid, String lockKeys)
         throws TransactionException {
         try {
+            // 封装全局锁Request
             GlobalLockQueryRequest request = new GlobalLockQueryRequest();
             request.setXid(xid);
             request.setLockKey(lockKeys);
             request.setResourceId(resourceId);
 
+            // 根据事务类型获取全局锁状态
             GlobalLockQueryResponse response = null;
             if (RootContext.inGlobalTransaction()) {
+                // 向TC发送请求
                 response = (GlobalLockQueryResponse)RmRpcClient.getInstance().sendMsgWithResponse(request);
             } else if (RootContext.requireGlobalLock()) {
+                // 和上面...
                 response = (GlobalLockQueryResponse)RmRpcClient.getInstance().sendMsgWithResponse(loadBalance(),
                     request, NettyClientConfig.getRpcRequestTimeout());
             } else {
@@ -92,6 +96,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
             }
 
             if (response.getResultCode() == ResultCode.Failed) {
+                // 如果失败, 抛出
                 throw new TransactionException(response.getTransactionExceptionCode(),
                     "Response[" + response.getMsg() + "]");
             }
@@ -104,12 +109,16 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
 
     }
 
+    /**
+     * 根据对应算法获取地址
+     * @return
+     */
     @SuppressWarnings("unchecked")
     private String loadBalance() {
         InetSocketAddress address = null;
         try {
-            List<InetSocketAddress> inetSocketAddressList = RegistryFactory.getInstance().lookup(
-                TmRpcClient.getInstance().getTransactionServiceGroup());
+            List<InetSocketAddress> inetSocketAddressList = RegistryFactory.getInstance()
+                .lookup(TmRpcClient.getInstance().getTransactionServiceGroup());
             address = LoadBalanceFactory.getInstance().select(inetSocketAddressList);
         } catch (Exception ignore) {
             LOGGER.error(ignore.getMessage());
@@ -137,6 +146,7 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
 
     @Override
     public void init() {
+        //  异步工作者
         AsyncWorker asyncWorker = new AsyncWorker();
         asyncWorker.init();
         initAsyncWorker(asyncWorker);
@@ -166,18 +176,21 @@ public class DataSourceManager extends AbstractResourceManager implements Initia
 
     @Override
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId, String resourceId,
-                                     String applicationData) throws TransactionException {
+        String applicationData) throws TransactionException {
+        // 添加到异步队列中, 定时任务批量处理
         return asyncWorker.branchCommit(branchType, xid, branchId, resourceId, applicationData);
     }
 
     @Override
     public BranchStatus branchRollback(BranchType branchType, String xid, long branchId, String resourceId,
                                        String applicationData) throws TransactionException {
+        // 数据库代理
         DataSourceProxy dataSourceProxy = get(resourceId);
         if (dataSourceProxy == null) {
             throw new ShouldNeverHappenException();
         }
         try {
+            // 获取相应数据库处理器处理
             UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType()).undo(dataSourceProxy, xid, branchId);
         } catch (TransactionException te) {
             StackTraceLogger.info(LOGGER, te,

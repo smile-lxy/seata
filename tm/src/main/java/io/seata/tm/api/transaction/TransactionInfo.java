@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Set;
 
 /**
+ * 事务信息
  * @author guoyao
  */
 public final class TransactionInfo implements Serializable {
@@ -59,6 +60,9 @@ public final class TransactionInfo implements Serializable {
         this.rollbackRules = rollbackRules;
     }
 
+    /**
+     * 是否需要回滚
+     */
     public boolean rollbackOn(Throwable ex) {
 
         RollbackRule winner = null;

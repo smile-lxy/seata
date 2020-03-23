@@ -20,6 +20,7 @@ import io.seata.common.util.StringUtils;
 import java.io.Serializable;
 
 /**
+ * 回滚条件
  * @author guoyao
  */
 public class RollbackRule implements Serializable {
@@ -54,7 +55,9 @@ public class RollbackRule implements Serializable {
         return getDepth(ex.getClass(), 0);
     }
 
-
+    /**
+     * 刨祖坟找毒瘤
+     */
     private int getDepth(Class<?> exceptionClass, int depth) {
         if (exceptionClass.getName().contains(this.exceptionName)) {
             // Found it!

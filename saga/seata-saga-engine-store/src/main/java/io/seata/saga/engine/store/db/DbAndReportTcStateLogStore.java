@@ -512,15 +512,18 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
     @Override
     public StateMachineInstance getStateMachineInstance(String stateMachineInstanceId) {
 
+        // 状态实例
         StateMachineInstance stateMachineInstance = selectOne(stateLogStoreSqls.getGetStateMachineInstanceByIdSql(dbType),
                 RESULT_SET_TO_STATE_MACHINE_INSTANCE, stateMachineInstanceId);
         if (stateMachineInstance == null) {
             return null;
         }
+        // 状态实例集合(父 1 ~ n 子)
         List<StateInstance> stateInstanceList = queryStateInstanceListByMachineInstanceId(stateMachineInstanceId);
         for (StateInstance stateInstance : stateInstanceList) {
             stateMachineInstance.putStateInstance(stateInstance.getId(), stateInstance);
         }
+        // 反序列化参数和异常
         deserializeParamsAndException(stateMachineInstance);
 
         return stateMachineInstance;
@@ -548,19 +551,23 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
     }
 
     private void deserializeParamsAndException(StateMachineInstance stateMachineInstance) {
+        // 序列化的异常
         byte[] serializedException = (byte[]) stateMachineInstance.getSerializedException();
         if (serializedException != null) {
+            // 反序列化异常
             stateMachineInstance.setException((Exception) exceptionSerializer.deserialize(serializedException));
         }
-
+        // 序列化的启动参数
         String serializedStartParams = (String) stateMachineInstance.getSerializedStartParams();
         if (StringUtils.hasLength(serializedStartParams)) {
             stateMachineInstance.setStartParams(
-                    (Map<String, Object>) paramsSerializer.deserialize(serializedStartParams));
+                    (Map<String, Object>) paramsSerializer.deserialize(serializedStartParams)
+            ); // 反序列化启动参数
         }
-
+        // 序列化的结束参数
         String serializedEndParams = (String) stateMachineInstance.getSerializedEndParams();
         if (StringUtils.hasLength(serializedEndParams)) {
+            // 反序列化结束参数
             stateMachineInstance.setEndParams((Map<String, Object>) paramsSerializer.deserialize(serializedEndParams));
         }
     }
@@ -574,25 +581,30 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
     @Override
     public StateInstance getStateInstance(String stateInstanceId, String machineInstId) {
 
-        StateInstance stateInstance = selectOne(
-                stateLogStoreSqls.getGetStateInstanceByIdAndMachineInstanceIdSql(dbType), RESULT_SET_TO_STATE_INSTANCE,
-                machineInstId, stateInstanceId);
+        StateInstance stateInstance = selectOne(stateLogStoreSqls.getGetStateInstanceByIdAndMachineInstanceIdSql(dbType),
+            RESULT_SET_TO_STATE_INSTANCE, machineInstId, stateInstanceId);
         deserializeParamsAndException(stateInstance);
         return stateInstance;
     }
 
     private void deserializeParamsAndException(StateInstance stateInstance) {
         if (stateInstance != null) {
+            // 序列化的输入参数
             String inputParams = (String) stateInstance.getSerializedInputParams();
             if (StringUtils.hasLength(inputParams)) {
+                // 反序列化输入参数
                 stateInstance.setInputParams(paramsSerializer.deserialize(inputParams));
             }
+            // 序列化的输出参数
             String outputParams = (String) stateInstance.getSerializedOutputParams();
             if (StringUtils.hasLength(outputParams)) {
+                // 反序列化输出参数
                 stateInstance.setOutputParams(paramsSerializer.deserialize(outputParams));
             }
+            // 序列化的异常
             byte[] serializedException = (byte[]) stateInstance.getSerializedException();
             if (serializedException != null) {
+                // 反序列化异常
                 stateInstance.setException((Exception) exceptionSerializer.deserialize(serializedException));
             }
         }
@@ -618,11 +630,14 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
         for (int i = 0; i < stateInstanceList.size(); i++) {
             StateInstance tempStateInstance = stateInstanceList.get(i);
 
+            // 反序列化参数和异常
             deserializeParamsAndException(tempStateInstance);
 
+            // 补偿状态
             if (StringUtils.hasText(tempStateInstance.getStateIdCompensatedFor())) {
                 putLastStateToMap(compensatedStateMap, tempStateInstance, tempStateInstance.getStateIdCompensatedFor());
             } else {
+                // 重试状态
                 if (StringUtils.hasText(tempStateInstance.getStateIdRetriedFor())) {
                     putLastStateToMap(retriedStateMap, tempStateInstance, tempStateInstance.getStateIdRetriedFor());
                 }
@@ -646,6 +661,9 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
         return stateInstanceList;
     }
 
+    /**
+     * 将最新状态放入结果集中
+     */
     private void putLastStateToMap(Map<String, StateInstance> resultMap, StateInstance newState, String key) {
 
         if (!resultMap.containsKey(key)) {
@@ -698,6 +716,7 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
     @Override
     public void setTablePrefix(String tablePrefix) {
         super.setTablePrefix(tablePrefix);
+        // 实例化
         this.stateLogStoreSqls = new StateLogStoreSqls(tablePrefix);
     }
 
@@ -786,6 +805,7 @@ public class DbAndReportTcStateLogStore extends AbstractStore implements StateLo
 
             String compensationStatusName = resultSet.getString("compensation_status");
             if (StringUtils.hasLength(compensationStatusName)) {
+                // 补偿状态
                 stateMachineInstance.setCompensationStatus(ExecutionStatus.valueOf(compensationStatusName));
             }
             stateMachineInstance.setRunning(resultSet.getBoolean("is_running"));

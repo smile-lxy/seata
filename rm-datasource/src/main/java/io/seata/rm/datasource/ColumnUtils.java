@@ -132,6 +132,7 @@ public final class ColumnUtils {
     }
 
     /**
+     * 检测字段是否为关键字, 添加转义
      * add escape by db type
      * @param colName the column name
      * @param dbType the db type
@@ -159,15 +160,7 @@ public final class ColumnUtils {
         }
 
         KeywordChecker keywordChecker = KeywordCheckerFactory.getKeywordChecker(dbType);
-        if (keywordChecker != null) {
-            boolean check = keywordChecker.checkEscape(colName);
-            if (!check) {
-                return colName;
-            }
-        }
-
-        StringBuilder result = new StringBuilder(2 * (String.valueOf(escape.value).length()) + colName.length());
-        return result.append(escape.value).append(colName).append(escape.value).toString();
+        return keywordChecker.checkAndReplace(colName);
     }
 
     private static boolean isMysqlSeries(String dbType) {

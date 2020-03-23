@@ -55,17 +55,20 @@ public class DubboUtil {
         if (!isDubboProxyName(proxyBean.getClass().getName())) {
             return null;
         }
+        // handler 字段
         Field handlerField = proxyBean.getClass().getDeclaredField("handler");
         handlerField.setAccessible(true);
+        // 获取对应的InvocationHandler
         Object invokerInvocationHandler = handlerField.get(proxyBean);
+        // 获取InvocationHandler里的invoker 字段
         Field invokerField = invokerInvocationHandler.getClass().getDeclaredField("invoker");
         invokerField.setAccessible(true);
         Object invoker = invokerField.get(invokerInvocationHandler);
+        // 获取故障转移字段
         Field failoverClusterInvokerField = invoker.getClass().getDeclaredField("invoker");
         failoverClusterInvokerField.setAccessible(true);
         Object failoverClusterInvoker = failoverClusterInvokerField.get(invoker);
-        return (Class<?>)ReflectionUtil.invokeMethod(failoverClusterInvoker,
-            "getInterface");
+        return (Class<?>)ReflectionUtil.invokeMethod(failoverClusterInvoker, "getInterface");
     }
 
     public static boolean isDubboProxyName(String name) {

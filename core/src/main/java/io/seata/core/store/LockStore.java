@@ -25,6 +25,7 @@ import java.util.List;
 public interface LockStore {
 
     /**
+     * 加锁 (row_key)
      * Acquire lock boolean.
      *
      * @param lockDO the lock do
@@ -34,6 +35,7 @@ public interface LockStore {
 
 
     /**
+     * 批量加锁 (row_key)
      * Acquire lock boolean.
      *
      * @param lockDOs the lock d os
@@ -50,6 +52,7 @@ public interface LockStore {
     boolean unLock(LockDO lockDO);
 
     /**
+     * 释放全局事务下多个行锁 (row_key)
      * Un lock boolean.
      *
      * @param lockDOs the lock d os
@@ -57,11 +60,18 @@ public interface LockStore {
      */
     boolean unLock(List<LockDO> lockDOs);
 
+    /**
+     * 释放全局事务下单个Branch锁
+     */
     boolean unLock(String xid, Long branchId);
 
+    /**
+     * 释放全局事务下多个Branch锁
+     */
     boolean unLock(String xid, List<Long> branchIds);
 
     /**
+     * 判断row_key是否已被锁
      * Is lockable boolean.
      *
      * @param lockDOs the lock do

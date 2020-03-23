@@ -53,8 +53,8 @@ import io.seata.server.store.TransactionStoreManager;
 @LoadLevel(name = "file")
 public class FileSessionManager extends AbstractSessionManager implements Reloadable {
 
-    private static final int READ_SIZE = ConfigurationFactory.getInstance().getInt(
-        ConfigurationKeys.SERVICE_SESSION_RELOAD_READ_SIZE, 100);
+    private static final int READ_SIZE = ConfigurationFactory.getInstance()
+        .getInt(ConfigurationKeys.SERVICE_SESSION_RELOAD_READ_SIZE, 100);
     /**
      * The Session map.
      */
@@ -183,6 +183,9 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
         }
     }
 
+    /**
+     * 清洗事务集合
+     */
     private void washSessions() {
         if (sessionMap.size() > 0) {
             Iterator<Map.Entry<String, GlobalSession>> iterator = sessionMap.entrySet().iterator();
@@ -191,15 +194,15 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
 
                 GlobalStatus globalStatus = globalSession.getStatus();
                 switch (globalStatus) {
-                    case UnKnown:
-                    case Committed:
-                    case CommitFailed:
-                    case Rollbacked:
-                    case RollbackFailed:
-                    case TimeoutRollbacked:
-                    case TimeoutRollbackFailed:
-                    case Finished:
-                        // Remove all sessions finished
+                    case UnKnown: // 未知
+                    case Committed: // 已提交
+                    case CommitFailed: // 提交失败的
+                    case Rollbacked: // 已回滚
+                    case RollbackFailed: // 回滚失败的
+                    case TimeoutRollbacked: // 已超时回滚的
+                    case TimeoutRollbackFailed: // 超时回滚失败的
+                    case Finished: // 已完成
+                        // Remove all sessions finished 从全局Session集合中移除
                         iterator.remove();
                         break;
                     default:
@@ -213,9 +216,10 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
         if (!(transactionStoreManager instanceof ReloadableStore)) {
             return;
         }
-        while (((ReloadableStore)transactionStoreManager).hasRemaining(isHistory)) {
-            List<TransactionWriteStore> stores = ((ReloadableStore)transactionStoreManager).readWriteStore(READ_SIZE,
-                isHistory);
+        while (((ReloadableStore)transactionStoreManager).hasRemaining(isHistory)) { // 是否还有记录
+            // 读出事务记录
+            List<TransactionWriteStore> stores = ((ReloadableStore)transactionStoreManager)
+                .readWriteStore(READ_SIZE, isHistory);
             restore(stores, unhandledBranchBuffer);
         }
     }
@@ -223,6 +227,7 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
     private void restore(List<TransactionWriteStore> stores, Map<Long, BranchSession> unhandledBranchSessions) {
         long maxRecoverId = UUIDGenerator.getCurrentUUID();
         for (TransactionWriteStore store : stores) {
+            // 操作枚举
             TransactionStoreManager.LogOperation logOperation = store.getOperate();
             SessionStorable sessionStorable = store.getSessionRequest();
             maxRecoverId = getMaxId(maxRecoverId, sessionStorable);
@@ -231,15 +236,16 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
                 case GLOBAL_UPDATE: {
                     GlobalSession globalSession = (GlobalSession)sessionStorable;
                     if (globalSession.getTransactionId() == 0) {
-                        LOGGER.error(
-                            "Restore globalSession from file failed, the transactionId is zero , xid:" + globalSession
-                                .getXid());
+                        LOGGER.error("Restore globalSession from file failed, the transactionId is zero , xid:"
+                            + globalSession.getXid());
                         break;
                     }
                     GlobalSession foundGlobalSession = sessionMap.get(globalSession.getXid());
                     if (foundGlobalSession == null) {
+                        // 不存在, 添加到全局事务集合中
                         sessionMap.put(globalSession.getXid(), globalSession);
                     } else {
+                        // 存在, 修改事务状态
                         foundGlobalSession.setStatus(globalSession.getStatus());
                     }
                     break;
@@ -247,9 +253,8 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
                 case GLOBAL_REMOVE: {
                     GlobalSession globalSession = (GlobalSession)sessionStorable;
                     if (globalSession.getTransactionId() == 0) {
-                        LOGGER.error(
-                            "Restore globalSession from file failed, the transactionId is zero , xid:" + globalSession
-                                .getXid());
+                        LOGGER.error("Restore globalSession from file failed, the transactionId is zero , xid:"
+                            + globalSession.getXid());
                         break;
                     }
                     if (sessionMap.remove(globalSession.getXid()) == null) {
@@ -263,19 +268,23 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
                 case BRANCH_UPDATE: {
                     BranchSession branchSession = (BranchSession)sessionStorable;
                     if (branchSession.getTransactionId() == 0) {
-                        LOGGER.error(
-                            "Restore branchSession from file failed, the transactionId is zero , xid:" + branchSession
-                                .getXid());
+                        LOGGER.error("Restore branchSession from file failed, the transactionId is zero , xid:"
+                            + branchSession.getXid());
                         break;
                     }
+                    // 全局事务
                     GlobalSession foundGlobalSession = sessionMap.get(branchSession.getXid());
                     if (foundGlobalSession == null) {
+                        // 当前未处理到全局事务(全局事务未在集合中, restoreSessions()执行完后会统一进行复查, 处理)
                         unhandledBranchSessions.put(branchSession.getBranchId(), branchSession);
                     } else {
+                        // 全局事务中分支事务
                         BranchSession existingBranch = foundGlobalSession.getBranch(branchSession.getBranchId());
                         if (existingBranch == null) {
+                            // 不存在, 添加分支事务到全局事务中
                             foundGlobalSession.add(branchSession);
                         } else {
+                            // 存在, 分支事务状态更改为全局事务状态
                             existingBranch.setStatus(branchSession.getStatus());
                         }
                     }
@@ -286,17 +295,15 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
                     String xid = branchSession.getXid();
                     long bid = branchSession.getBranchId();
                     if (branchSession.getTransactionId() == 0) {
-                        LOGGER.error(
-                            "Restore branchSession from file failed, the transactionId is zero , xid:" + branchSession
-                                .getXid());
+                        LOGGER.error("Restore branchSession from file failed, the transactionId is zero , xid:"
+                            + branchSession.getXid());
                         break;
                     }
                     GlobalSession found = sessionMap.get(xid);
                     if (found == null) {
                         if (LOGGER.isInfoEnabled()) {
-                            LOGGER.info(
-                                "GlobalSession To Be Updated (Remove Branch) Does Not Exists [" + bid + "/" + xid
-                                    + "]");
+                            LOGGER.info("GlobalSession To Be Updated (Remove Branch) Does Not Exists ["
+                                + bid + "/" + xid + "]");
                         }
                     } else {
                         BranchSession theBranch = found.getBranch(bid);
@@ -316,6 +323,7 @@ public class FileSessionManager extends AbstractSessionManager implements Reload
 
             }
         }
+        // 设置最大id, 防止生成重复ID
         setMaxId(maxRecoverId);
 
     }

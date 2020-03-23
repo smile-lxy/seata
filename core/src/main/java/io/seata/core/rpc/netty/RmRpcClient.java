@@ -73,6 +73,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
      */
     public static RmRpcClient getInstance(String applicationId, String transactionServiceGroup) {
         RmRpcClient rmRpcClient = getInstance();
+        // 设置当前业务配置信息
         rmRpcClient.setApplicationId(applicationId);
         rmRpcClient.setTransactionServiceGroup(transactionServiceGroup);
         return rmRpcClient;
@@ -129,7 +130,9 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
 
     @Override
     public void init() {
+        // CAS 初始化状态改为true
         if (initialized.compareAndSet(false, true)) {
+            // 父类初始化
             super.init();
         }
     }
@@ -159,24 +162,33 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
     protected String getTransactionServiceGroup() {
         return transactionServiceGroup;
     }
-    
+
+    /**
+     * 连接Server Channel创建成功后调用
+     * @see NettyPoolableFactory#makeObject(NettyPoolKey)
+     */
     @Override
-    public void onRegisterMsgSuccess(String serverAddress, Channel channel, Object response,
-                                     AbstractMessage requestMessage) {
+    public void onRegisterMsgSuccess(String serverAddress, Channel channel, Object response, AbstractMessage requestMessage) {
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("register RM success. server version:{},channel:{}", ((RegisterRMResponse)response).getVersion(), channel);
         }
+        // 向客户端Channel管理器注册(map存储)
         getClientChannelManager().registerChannel(serverAddress, channel);
         String dbKey = getMergedResourceKeys();
         RegisterRMRequest message = (RegisterRMRequest)requestMessage;
         if (message.getResourceIds() != null) {
             if (!message.getResourceIds().equals(dbKey)) {
+                // 发送注册消息
                 sendRegisterMessage(serverAddress, channel, dbKey);
             }
         }
 
     }
 
+    /**
+     * 连接Server Channel创建失败后调用
+     * @see NettyPoolableFactory#makeObject(NettyPoolKey)
+     */
     @Override
     public void onRegisterMsgFail(String serverAddress, Channel channel, Object response,
                                   AbstractMessage requestMessage) {
@@ -195,6 +207,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
      */
     public void registerResource(String resourceGroupId, String resourceId) {
         if (getClientChannelManager().getChannels().isEmpty()) {
+            // 重连Server
             getClientChannelManager().reconnect(transactionServiceGroup);
             return;
         }
@@ -205,18 +218,24 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("will register resourceId:{}", resourceId);
                 }
+                // 发送注册信息
                 sendRegisterMessage(serverAddress, rmChannel, resourceId);
             }
         }
     }
 
+    /**
+     * 发送注册信息
+     */
     public void sendRegisterMessage(String serverAddress, Channel channel, String resourceId) {
         RegisterRMRequest message = new RegisterRMRequest(applicationId, transactionServiceGroup);
         message.setResourceIds(resourceId);
         try {
+            // 发送消息
             super.sendAsyncRequestWithoutResponse(channel, message);
         } catch (FrameworkException e) {
             if (e.getErrcode() == FrameworkErrorCode.ChannelIsNotWritable && serverAddress != null) {
+                // 释放Channel
                 getClientChannelManager().releaseChannel(channel, serverAddress);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("remove not writable channel:{}", channel);
@@ -230,6 +249,7 @@ public final class RmRpcClient extends AbstractRpcRemotingClient {
     }
 
     public String getMergedResourceKeys() {
+        // 资源集合
         Map<String, Resource> managedResources = resourceManager.getManagedResources();
         Set<String> resourceIds = managedResources.keySet();
         if (!resourceIds.isEmpty()) {

@@ -36,16 +36,21 @@ public class ExporterFactory {
 
     public static List<Exporter> getInstanceList() {
         List<Exporter> exporters = new ArrayList<>();
-        String exporterTypeNameList = ConfigurationFactory.getInstance().getConfig(
-            ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_EXPORTER_LIST, null);
+        // 从配置文件中获取'metrics.exporterList'配置, 默认: null
+        String exporterTypeNameList = ConfigurationFactory.getInstance()
+            .getConfig(ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_EXPORTER_LIST, null);
         if (!StringUtils.isNullOrEmpty(exporterTypeNameList)) {
             String[] exporterTypeNames = exporterTypeNameList.split(",");
+            // 循环加载提供者
             for (String exporterTypeName : exporterTypeNames) {
                 ExporterType exporterType;
                 try {
+                    // 导出类型
                     exporterType = ExporterType.getType(exporterTypeName);
+                    // SPI机制加载
                     exporters.add(
-                        EnhancedServiceLoader.load(Exporter.class, Objects.requireNonNull(exporterType).name()));
+                        EnhancedServiceLoader.load(Exporter.class, Objects.requireNonNull(exporterType).name())
+                    );
                 } catch (Exception exx) {
                     LOGGER.error("not support metrics exporter type: {}",exporterTypeName, exx);
                 }

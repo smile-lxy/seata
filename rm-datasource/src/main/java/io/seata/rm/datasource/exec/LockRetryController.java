@@ -22,15 +22,24 @@ import static io.seata.core.constants.DefaultValues.DEFAULT_CLIENT_LOCK_RETRY_IN
 import static io.seata.core.constants.DefaultValues.DEFAULT_CLIENT_LOCK_RETRY_TIMES;
 
 /**
+ * 锁重试控制者
  * The type Lock retry controller.
  *
  * @author sharajava
  */
 public class LockRetryController {
-    private static int LOCK_RETRY_INTERNAL =
-        ConfigurationFactory.getInstance().getInt(ConfigurationKeys.CLIENT_LOCK_RETRY_INTERVAL, DEFAULT_CLIENT_LOCK_RETRY_INTERVAL);
-    private static int LOCK_RETRY_TIMES =
-        ConfigurationFactory.getInstance().getInt(ConfigurationKeys.CLIENT_LOCK_RETRY_TIMES, DEFAULT_CLIENT_LOCK_RETRY_TIMES);
+
+    /**
+     * 锁重试间隔
+     */
+    private static int LOCK_RETRY_INTERNAL = ConfigurationFactory.getInstance()
+        .getInt(ConfigurationKeys.CLIENT_LOCK_RETRY_INTERVAL, DEFAULT_CLIENT_LOCK_RETRY_INTERVAL);
+
+    /**
+     * 锁重试时间
+     */
+    private static int LOCK_RETRY_TIMES = ConfigurationFactory.getInstance()
+        .getInt(ConfigurationKeys.CLIENT_LOCK_RETRY_TIMES, DEFAULT_CLIENT_LOCK_RETRY_TIMES);
 
     private int lockRetryInternal = LOCK_RETRY_INTERNAL;
     private int lockRetryTimes = LOCK_RETRY_TIMES;

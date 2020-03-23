@@ -208,19 +208,18 @@ public class DefaultSagaTransactionalTemplate
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Initializing Global Transaction Clients ... ");
         }
-        if (io.seata.common.util.StringUtils.isNullOrEmpty(applicationId) || io.seata.common.util.StringUtils
-            .isNullOrEmpty(txServiceGroup)) {
+        if (io.seata.common.util.StringUtils.isNullOrEmpty(applicationId)
+            || io.seata.common.util.StringUtils.isNullOrEmpty(txServiceGroup)) {
             throw new IllegalArgumentException(
                 "applicationId: " + applicationId + ", txServiceGroup: " + txServiceGroup);
         }
-        //init TM
+        //init TM 初始化TM
         TMClient.init(applicationId, txServiceGroup);
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(
-                "Transaction Manager Client is initialized. applicationId[" + applicationId + "] txServiceGroup["
+            LOGGER.info("Transaction Manager Client is initialized. applicationId[" + applicationId + "] txServiceGroup["
                     + txServiceGroup + "]");
         }
-        //init RM
+        //init RM 初始化RM
         RMClient.init(applicationId, txServiceGroup);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(
@@ -232,11 +231,13 @@ public class DefaultSagaTransactionalTemplate
         SagaResource sagaResource = new SagaResource();
         sagaResource.setResourceGroupId(getTxServiceGroup());
         sagaResource.setApplicationId(getApplicationId());
+        // 注册资源
         DefaultResourceManager.get().registerResource(sagaResource);
 
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Global Transaction Clients are initialized. ");
         }
+        // 注册Spring关闭钩子
         registerSpringShutdownHook();
 
     }

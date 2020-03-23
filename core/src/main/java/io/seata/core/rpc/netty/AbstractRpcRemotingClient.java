@@ -84,7 +84,8 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         this.transactionRole = transactionRole;
         clientBootstrap = new RpcClientBootstrap(nettyClientConfig, eventExecutorGroup, transactionRole);
         clientChannelManager = new NettyClientChannelManager(
-            new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction(), nettyClientConfig);
+            new NettyPoolableFactory(this, clientBootstrap), getPoolKeyFunction(), nettyClientConfig
+        );
     }
 
     public NettyClientChannelManager getClientChannelManager() {
@@ -107,29 +108,35 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
 
     @Override
     public void init() {
+        // 配置额外Handler链, 业务处理将在'ClientHandler'里处理
         clientBootstrap.setChannelHandlers(new ClientHandler());
+        // 启动BootStrap
         clientBootstrap.start();
+        // 定时重连任务,
         timerExecutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
+                // 有存活可用的, 就不用重连
                 clientChannelManager.reconnect(getTransactionServiceGroup());
             }
         }, SCHEDULE_DELAY_MILLS, SCHEDULE_INTERVAL_MILLS, TimeUnit.MILLISECONDS);
         if (NettyClientConfig.isEnableClientBatchSendRequest()) {
+            // 如果开启消息合并发送开关, 创建线程池, 开启消息合并发送任务
             mergeSendExecutorService = new ThreadPoolExecutor(MAX_MERGE_SEND_THREAD,
-                MAX_MERGE_SEND_THREAD,
-                KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS,
+                MAX_MERGE_SEND_THREAD, KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory(getThreadPrefix(), MAX_MERGE_SEND_THREAD));
             mergeSendExecutorService.submit(new MergedSendRunnable());
         }
-        super.init();
+        super.init(); // 父类初始化(定时清除超时未响应的Future)
     }
 
     @Override
     public void destroy() {
+        // 关闭连接
         clientBootstrap.shutdown();
         if (mergeSendExecutorService != null) {
+            // 线程池关闭
             mergeSendExecutorService.shutdown();
         }
         super.destroy();
@@ -137,8 +144,11 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
 
     @Override
     public Object sendMsgWithResponse(Object msg, long timeout) throws TimeoutException {
+        // 可用IP地址
         String validAddress = loadBalance(getTransactionServiceGroup());
+        // 获取存活可用Channel
         Channel channel = clientChannelManager.acquireChannel(validAddress);
+        // 向TC发送请求
         Object result = super.sendAsyncRequestWithResponse(validAddress, channel, msg, timeout);
         return result;
     }
@@ -182,6 +192,11 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         clientChannelManager.destroyChannel(serverAddress, channel);
     }
 
+    /**
+     * 根据负载获取可用地址
+     * @param transactionServiceGroup
+     * @return
+     */
     private String loadBalance(String transactionServiceGroup) {
         InetSocketAddress address = null;
         try {
@@ -201,14 +216,16 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
     }
 
     /**
+     * 消息合并发送线程
      * The type Merged send runnable.
      */
     private class MergedSendRunnable implements Runnable {
 
         @Override
         public void run() {
-            while (true) {
+            while (true) { // 无坚不摧的 while(true)
                 synchronized (mergeLock) {
+                    // 开门先休息一下, 等待 AbstractRpcRemoting#sendAsyncRequest 唤醒
                     try {
                         mergeLock.wait(MAX_MERGE_SEND_MILLS);
                     } catch (InterruptedException e) {
@@ -216,23 +233,28 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                 }
                 isSending = true;
                 for (String address : basketMap.keySet()) {
+                    // 单Channel的消息队列
                     BlockingQueue<RpcMessage> basket = basketMap.get(address);
                     if (basket.isEmpty()) {
                         continue;
                     }
 
+                    // 合并消息
                     MergedWarpMessage mergeMessage = new MergedWarpMessage();
                     while (!basket.isEmpty()) {
                         RpcMessage msg = basket.poll();
                         mergeMessage.msgs.add((AbstractMessage) msg.getBody());
                         mergeMessage.msgIds.add(msg.getId());
                     }
+                    // 消息临发送前的日志输出(雁过留影)
                     if (mergeMessage.msgIds.size() > 1) {
                         printMergeMessageLog(mergeMessage);
                     }
                     Channel sendChannel = null;
                     try {
+                        // 根据地址获取Channel
                         sendChannel = clientChannelManager.acquireChannel(address);
+                        // 发送合并消息
                         AbstractRpcRemotingClient.super.defaultSendRequest(sendChannel, mergeMessage);
                     } catch (FrameworkException e) {
                         if (e.getErrcode() == FrameworkErrorCode.ChannelIsNotWritable && sendChannel != null) {
@@ -240,8 +262,10 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                         }
                         // fast fail
                         for (Integer msgId : mergeMessage.msgIds) {
+                            // 从响应集合中清除响应
                             MessageFuture messageFuture = futures.remove(msgId);
                             if (messageFuture != null) {
+                                // 如果响应不为空, 将响应结果内容置为null
                                 messageFuture.setResultMessage(null);
                             }
                         }
@@ -280,7 +304,9 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         @Override
         public void dispatch(RpcMessage request, ChannelHandlerContext ctx) {
             if (clientMessageListener != null) {
+                // 解析通道地址, 为了处理业务后方便根据地址获取Channel进行Response
                 String remoteAddress = NetUtil.toStringAddress(ctx.channel().remoteAddress());
+                // 感兴趣的监听者处理, 响应
                 clientMessageListener.onMessage(request, remoteAddress);
             }
         }
@@ -288,31 +314,39 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         @Override
         public void channelRead(final ChannelHandlerContext ctx, Object msg) throws Exception {
             if (!(msg instanceof RpcMessage)) {
+                // 不是当前服务协议消息, 直接丢弃
                 return;
             }
             RpcMessage rpcMessage = (RpcMessage) msg;
             if (rpcMessage.getBody() == HeartbeatMessage.PONG) {
+                // 心跳包: 服务器端的相应消息, 丢弃
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("received PONG from {}", ctx.channel().remoteAddress());
                 }
                 return;
             }
             if (rpcMessage.getBody() instanceof MergeResultMessage) {
+                // 合并类消息
                 MergeResultMessage results = (MergeResultMessage) rpcMessage.getBody();
+                // 从消息池中移除,
                 MergedWarpMessage mergeMessage = (MergedWarpMessage) mergeMsgMap.remove(rpcMessage.getId());
                 for (int i = 0; i < mergeMessage.msgs.size(); i++) {
                     int msgId = mergeMessage.msgIds.get(i);
+                    // 从异步池中移除
                     MessageFuture future = futures.remove(msgId);
                     if (future == null) {
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info("msg: {} is not found in futures.", msgId);
                         }
                     } else {
+                        // 异步池里找到了钩子, 将返回的结果填充到钩子里
                         future.setResultMessage(results.getMsgs()[i]);
                     }
                 }
                 return;
             }
+
+            // 交由父类处理
             super.channelRead(ctx, msg);
         }
 
@@ -324,13 +358,20 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("channel inactive: {}", ctx.channel());
             }
+            // 释放Channel
             clientChannelManager.releaseChannel(ctx.channel(), NetUtil.toStringAddress(ctx.channel().remoteAddress()));
             super.channelInactive(ctx);
         }
 
+        /**
+         * 当ChannelHandler长达'${max_idle_second}'时触发
+         * @param ctx
+         * @param evt
+         */
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
             if (evt instanceof IdleStateEvent) {
+                // 心跳包时间
                 IdleStateEvent idleStateEvent = (IdleStateEvent)evt;
                 if (idleStateEvent.state() == IdleState.READER_IDLE) {
                     if (LOGGER.isInfoEnabled()) {
@@ -342,6 +383,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                     } catch (Exception exx) {
                         LOGGER.error(exx.getMessage());
                     } finally {
+                        // 释放Channel
                         clientChannelManager.releaseChannel(ctx.channel(), getAddressFromContext(ctx));
                     }
                 }
@@ -350,6 +392,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
                         if (LOGGER.isDebugEnabled()) {
                             LOGGER.debug("will send ping msg,channel {}", ctx.channel());
                         }
+                        // 发送心跳包
                         AbstractRpcRemotingClient.super.defaultSendRequest(ctx.channel(), HeartbeatMessage.PING);
                     } catch (Throwable throwable) {
                         LOGGER.error("send request error: {}", throwable.getMessage(), throwable);
@@ -362,6 +405,7 @@ public abstract class AbstractRpcRemotingClient extends AbstractRpcRemoting
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             LOGGER.error(FrameworkErrorCode.ExceptionCaught.getErrCode(),
                 NetUtil.toStringAddress(ctx.channel().remoteAddress()) + "connect exception. " + cause.getMessage(), cause);
+            // 释放Channel
             clientChannelManager.releaseChannel(ctx.channel(), getAddressFromChannel(ctx.channel()));
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("remove exception rm channel:{}", ctx.channel());

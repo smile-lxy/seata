@@ -24,6 +24,7 @@ import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import io.seata.sqlparser.SQLRecognizer;
 
 /**
+ * 基础识别器
  * The type Base recognizer.
  *
  * @author sharajava
@@ -31,6 +32,7 @@ import io.seata.sqlparser.SQLRecognizer;
 public abstract class BaseRecognizer implements SQLRecognizer {
 
     /**
+     * 占位符
      * The type V marker.
      */
     public static class VMarker {
@@ -42,6 +44,7 @@ public abstract class BaseRecognizer implements SQLRecognizer {
     }
 
     /**
+     * 原始SQL语句
      * The Original sql.
      */
     protected String originalSQL;
@@ -57,13 +60,18 @@ public abstract class BaseRecognizer implements SQLRecognizer {
     }
 
     public void executeVisit(SQLExpr where, SQLASTVisitor visitor) {
+        // 根据不同的Where Expr解析
         if (where instanceof SQLBinaryOpExpr) {
+            // id = 1
             visitor.visit((SQLBinaryOpExpr) where);
         } else if (where instanceof SQLInListExpr) {
+            // id in (1, 2, ...)
             visitor.visit((SQLInListExpr) where);
         } else if (where instanceof SQLBetweenExpr) {
+            // id between 1 and 10
             visitor.visit((SQLBetweenExpr) where);
         } else if (where instanceof SQLExistsExpr) {
+            // id is exist
             visitor.visit((SQLExistsExpr) where);
         } else {
             throw new IllegalArgumentException("unexpected WHERE expr: " + where.getClass().getSimpleName());

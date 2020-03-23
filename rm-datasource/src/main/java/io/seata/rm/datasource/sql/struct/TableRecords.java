@@ -176,6 +176,7 @@ public class TableRecords {
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
         int columnCount = resultSetMetaData.getColumnCount();
 
+        // 封装查询结果
         while (resultSet.next()) {
             List<Field> fields = new ArrayList<>(columnCount);
             for (int i = 1; i <= columnCount; i++) {

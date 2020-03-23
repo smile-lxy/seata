@@ -60,6 +60,7 @@ public class MySQLUndoDeleteExecutor extends AbstractUndoExecutor {
      */
     @Override
     protected String buildUndoSQL() {
+        // SQL执行前镜像
         TableRecords beforeImage = sqlUndoLog.getBeforeImage();
         List<Row> beforeImageRows = beforeImage.getRows();
         if (CollectionUtils.isEmpty(beforeImageRows)) {
@@ -79,6 +80,7 @@ public class MySQLUndoDeleteExecutor extends AbstractUndoExecutor {
         String insertValues = fields.stream().map(field -> "?")
             .collect(Collectors.joining(", "));
 
+        // 正则组装SQL
         return String.format(INSERT_SQL_TEMPLATE, sqlUndoLog.getTableName(), insertColumns, insertValues);
     }
 

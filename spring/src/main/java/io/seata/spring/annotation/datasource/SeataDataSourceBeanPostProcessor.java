@@ -32,6 +32,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 
 /**
+ * Seata数据源处理器
  * @author xingfudeshi@gmail.com
  * The type seata data source bean post processor
  */
@@ -46,11 +47,14 @@ public class SeataDataSourceBeanPostProcessor implements BeanPostProcessor {
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         if (bean instanceof DataSource && !(bean instanceof DataSourceProxy)) {
+            // 原数据源 && 非数据源代理
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("Auto proxy of [{}]", beanName);
             }
+            // 代理数据源
             return proxyDataSource(bean);
         }
+        // 其他原样返回
         return bean;
     }
 
@@ -64,17 +68,23 @@ public class SeataDataSourceBeanPostProcessor implements BeanPostProcessor {
     }
 
     /**
+     * 代理数据源
      * proxy data source
      *
      * @param originBean
      * @return proxied datasource
      */
     private Object proxyDataSource(Object originBean) {
+        // 数据源代理
         DataSourceProxy dataSourceProxy = DataSourceProxyHolder.get().putDataSource((DataSource) originBean);
         if (this.useJdkProxy) {
-            return Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), SpringProxyUtils.getAllInterfaces(originBean), (proxy, method, args) -> handleMethodProxy(dataSourceProxy, method, args, originBean));
+            // jdk代理
+            return Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), SpringProxyUtils.getAllInterfaces(originBean),
+                (proxy, method, args) -> handleMethodProxy(dataSourceProxy, method, args, originBean));
         } else {
-            return Enhancer.create(originBean.getClass(), (MethodInterceptor) (proxy, method, args, methodProxy) -> handleMethodProxy(dataSourceProxy, method, args, originBean));
+            // CGLIB代理
+            return Enhancer.create(originBean.getClass(),
+                (MethodInterceptor) (proxy, method, args, methodProxy) -> handleMethodProxy(dataSourceProxy, method, args, originBean));
         }
 
     }
@@ -90,16 +100,21 @@ public class SeataDataSourceBeanPostProcessor implements BeanPostProcessor {
      * @throws InvocationTargetException
      * @throws IllegalAccessException
      */
-    private Object handleMethodProxy(DataSourceProxy dataSourceProxy, Method method, Object[] args, Object originBean) throws InvocationTargetException, IllegalAccessException {
+    private Object handleMethodProxy(DataSourceProxy dataSourceProxy, Method method, Object[] args, Object originBean)
+        throws InvocationTargetException, IllegalAccessException {
+        // 要代理的方法
         Method m = BeanUtils.findDeclaredMethod(DataSourceProxy.class, method.getName(), method.getParameterTypes());
         if (null != m) {
+            // 代理处理...
             return m.invoke(dataSourceProxy, args);
         } else {
+            // 执行原始方法
             boolean oldAccessible = method.isAccessible();
             try {
                 method.setAccessible(true);
                 return method.invoke(originBean, args);
             } finally {
+                // 清理现场
                 //recover the original accessible for security reason
                 method.setAccessible(oldAccessible);
             }

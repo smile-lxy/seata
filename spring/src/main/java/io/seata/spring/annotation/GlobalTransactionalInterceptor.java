@@ -57,6 +57,7 @@ public class GlobalTransactionalInterceptor implements ConfigurationChangeListen
     private final TransactionalTemplate transactionalTemplate = new TransactionalTemplate();
     private final GlobalLockTemplate<Object> globalLockTemplate = new GlobalLockTemplate<>();
     private final FailureHandler failureHandler;
+    // 是否禁止全局事务
     private volatile boolean disable;
 
     /**
@@ -66,24 +67,32 @@ public class GlobalTransactionalInterceptor implements ConfigurationChangeListen
      */
     public GlobalTransactionalInterceptor(FailureHandler failureHandler) {
         this.failureHandler = failureHandler == null ? DEFAULT_FAIL_HANDLER : failureHandler;
-        this.disable = ConfigurationFactory.getInstance().getBoolean(ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION,
-            DEFAULT_DISABLE_GLOBAL_TRANSACTION);
+        this.disable = ConfigurationFactory.getInstance()
+            .getBoolean(ConfigurationKeys.DISABLE_GLOBAL_TRANSACTION, DEFAULT_DISABLE_GLOBAL_TRANSACTION);
     }
 
     @Override
     public Object invoke(final MethodInvocation methodInvocation) throws Throwable {
-        Class<?> targetClass = methodInvocation.getThis() != null ? AopUtils.getTargetClass(methodInvocation.getThis())
+        // 原始类
+        Class<?> targetClass = methodInvocation.getThis() != null
+            ? AopUtils.getTargetClass(methodInvocation.getThis())
             : null;
+        // 具体方法
         Method specificMethod = ClassUtils.getMostSpecificMethod(methodInvocation.getMethod(), targetClass);
         final Method method = BridgeMethodResolver.findBridgedMethod(specificMethod);
 
+        // 全局事务注解
         final GlobalTransactional globalTransactionalAnnotation = getAnnotation(method, GlobalTransactional.class);
+        // 全局锁注解
         final GlobalLock globalLockAnnotation = getAnnotation(method, GlobalLock.class);
         if (!disable && globalTransactionalAnnotation != null) {
+            // 未禁止全局事务 && 全局事务注解不为空
             return handleGlobalTransaction(methodInvocation, globalTransactionalAnnotation);
         } else if (!disable && globalLockAnnotation != null) {
+            // 未禁止全局事务 && 全局锁注解不为空
             return handleGlobalLock(methodInvocation);
         } else {
+            // 执行原始方法
             return methodInvocation.proceed();
         }
     }
@@ -106,10 +115,12 @@ public class GlobalTransactionalInterceptor implements ConfigurationChangeListen
             return transactionalTemplate.execute(new TransactionalExecutor() {
                 @Override
                 public Object execute() throws Throwable {
+                    // 调用业务
                     return methodInvocation.proceed();
                 }
 
                 public String name() {
+                    // 事务名称
                     String name = globalTrxAnno.name();
                     if (!StringUtils.isNullOrEmpty(name)) {
                         return name;
@@ -123,6 +134,7 @@ public class GlobalTransactionalInterceptor implements ConfigurationChangeListen
                     transactionInfo.setTimeOut(globalTrxAnno.timeoutMills());
                     transactionInfo.setName(name());
                     transactionInfo.setPropagation(globalTrxAnno.propagation());
+                    // 事务回滚规则
                     Set<RollbackRule> rollbackRules = new LinkedHashSet<>();
                     for (Class<?> rbRule : globalTrxAnno.rollbackFor()) {
                         rollbackRules.add(new RollbackRule(rbRule));
@@ -168,6 +180,11 @@ public class GlobalTransactionalInterceptor implements ConfigurationChangeListen
         return method == null ? null : method.getAnnotation(clazz);
     }
 
+    /**
+     * 方法名+参数类型名
+     * @param method
+     * @return
+     */
     private String formatMethod(Method method) {
         StringBuilder sb = new StringBuilder(method.getName()).append("(");
 

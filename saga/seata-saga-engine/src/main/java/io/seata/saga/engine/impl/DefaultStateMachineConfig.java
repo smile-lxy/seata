@@ -98,13 +98,15 @@ public class DefaultStateMachineConfig implements StateMachineConfig, Applicatio
     protected void init() throws Exception {
 
         if (expressionFactoryManager == null) {
-            expressionFactoryManager = new ExpressionFactoryManager();
+            expressionFactoryManager = new ExpressionFactoryManager(); // 实例化表达式工厂管理器
 
+            // spring EL 表达式解析工厂
             SpringELExpressionFactory springELExpressionFactory = new SpringELExpressionFactory();
             springELExpressionFactory.setApplicationContext(getApplicationContext());
             expressionFactoryManager.putExpressionFactory(ExpressionFactoryManager.DEFAULT_EXPRESSION_TYPE,
                 springELExpressionFactory);
 
+            // 序列表达式工厂
             SequenceExpressionFactory sequenceExpressionFactory = new SequenceExpressionFactory();
             sequenceExpressionFactory.setSeqGenerator(getSeqGenerator());
             expressionFactoryManager.putExpressionFactory(DomainConstants.EXPRESSION_TYPE_SEQUENCE,
@@ -112,19 +114,22 @@ public class DefaultStateMachineConfig implements StateMachineConfig, Applicatio
         }
 
         if (evaluatorFactoryManager == null) {
-            evaluatorFactoryManager = new EvaluatorFactoryManager();
+            evaluatorFactoryManager = new EvaluatorFactoryManager(); // 鉴别器工厂管理器
 
+            // EL表达式鉴别工厂
             ExpressionEvaluatorFactory expressionEvaluatorFactory = new ExpressionEvaluatorFactory();
             expressionEvaluatorFactory.setExpressionFactory(
                 expressionFactoryManager.getExpressionFactory(ExpressionFactoryManager.DEFAULT_EXPRESSION_TYPE));
             evaluatorFactoryManager.putEvaluatorFactory(EvaluatorFactoryManager.EVALUATOR_TYPE_DEFAULT,
                 expressionEvaluatorFactory);
 
+            // 异常匹配鉴别工厂
             evaluatorFactoryManager.putEvaluatorFactory(DomainConstants.EVALUATOR_TYPE_EXCEPTION,
                 new ExceptionMatchEvaluatorFactory());
         }
 
         if (stateMachineRepository == null) {
+            // 状态机仓库
             StateMachineRepositoryImpl stateMachineRepository = new StateMachineRepositoryImpl();
             stateMachineRepository.setCharset(charset);
             stateMachineRepository.setSeqGenerator(seqGenerator);
@@ -132,6 +137,7 @@ public class DefaultStateMachineConfig implements StateMachineConfig, Applicatio
             stateMachineRepository.setDefaultTenantId(defaultTenantId);
             if (resources != null) {
                 try {
+                    // 注册资源
                     stateMachineRepository.registryByResources(resources, defaultTenantId);
                 } catch (IOException e) {
                     LOGGER.error("Load State Language Resources failed.", e);
@@ -141,84 +147,107 @@ public class DefaultStateMachineConfig implements StateMachineConfig, Applicatio
         }
 
         if (stateLogRepository == null) {
+            // 状态日志仓库
             StateLogRepositoryImpl stateLogRepositoryImpl = new StateLogRepositoryImpl();
             stateLogRepositoryImpl.setStateLogStore(stateLogStore);
             this.stateLogRepository = stateLogRepositoryImpl;
         }
 
         if (statusDecisionStrategy == null) {
-            statusDecisionStrategy = new DefaultStatusDecisionStrategy();
+            statusDecisionStrategy = new DefaultStatusDecisionStrategy(); // 状态决策策略
         }
 
+        // 同步事件发布者
         if (syncProcessCtrlEventPublisher == null) {
+            // 事件发布者
             ProcessCtrlEventPublisher syncEventPublisher = new ProcessCtrlEventPublisher();
 
+            // 流程控制器
             ProcessControllerImpl processorController = createProcessorController(syncEventPublisher);
 
+            // 事件监听者
             ProcessCtrlEventConsumer processCtrlEventConsumer = new ProcessCtrlEventConsumer();
             processCtrlEventConsumer.setProcessController(processorController);
 
+            // 透传事件BUS
             DirectEventBus directEventBus = new DirectEventBus();
             syncEventPublisher.setEventBus(directEventBus);
 
+            // 注册事件监听者
             directEventBus.registerEventConsumer(processCtrlEventConsumer);
 
             syncProcessCtrlEventPublisher = syncEventPublisher;
         }
 
+        // 开启异步事件发布
         if (enableAsync && asyncProcessCtrlEventPublisher == null) {
+            // 事件发布者
             ProcessCtrlEventPublisher asyncEventPublisher = new ProcessCtrlEventPublisher();
 
+            // 流程控制器
             ProcessControllerImpl processorController = createProcessorController(asyncEventPublisher);
 
+            // 事件监听者
             ProcessCtrlEventConsumer processCtrlEventConsumer = new ProcessCtrlEventConsumer();
             processCtrlEventConsumer.setProcessController(processorController);
 
+            // 异步事件BUS
             AsyncEventBus asyncEventBus = new AsyncEventBus();
             asyncEventBus.setThreadPoolExecutor(getThreadPoolExecutor());
             asyncEventPublisher.setEventBus(asyncEventBus);
 
+            // 注册事件监听者
             asyncEventBus.registerEventConsumer(processCtrlEventConsumer);
 
             asyncProcessCtrlEventPublisher = asyncEventPublisher;
         }
 
+        // 服务调用管理器
         if (this.serviceInvokerManager == null) {
             this.serviceInvokerManager = new ServiceInvokerManager();
 
+            // Spring Bean调用管理器
             SpringBeanServiceInvoker springBeanServiceInvoker = new SpringBeanServiceInvoker();
             springBeanServiceInvoker.setApplicationContext(getApplicationContext());
             springBeanServiceInvoker.setThreadPoolExecutor(threadPoolExecutor);
-            this.serviceInvokerManager.putServiceInvoker(DomainConstants.SERVICE_TYPE_SPRING_BEAN,
-                springBeanServiceInvoker);
+            this.serviceInvokerManager
+                .putServiceInvoker(DomainConstants.SERVICE_TYPE_SPRING_BEAN, springBeanServiceInvoker);
         }
     }
 
     private ProcessControllerImpl createProcessorController(ProcessCtrlEventPublisher eventPublisher) throws Exception {
 
+        // 状态机路由
         StateMachineProcessRouter stateMachineProcessRouter = new StateMachineProcessRouter();
-        stateMachineProcessRouter.initDefaultStateRouters();
+        stateMachineProcessRouter.initDefaultStateRouters(); // 初始化默认状态机路由器
 
+        // 状态机处理Handler
         StateMachineProcessHandler stateMachineProcessHandler = new StateMachineProcessHandler();
-        stateMachineProcessHandler.initDefaultHandlers();
+        stateMachineProcessHandler.initDefaultHandlers(); // 初始化默认处理Handler
 
+        // 默认路由Handler
         DefaultRouterHandler defaultRouterHandler = new DefaultRouterHandler();
         defaultRouterHandler.setEventPublisher(eventPublisher);
 
+        // 处理路由集合
         Map<String, ProcessRouter> processRouterMap = new HashMap<>(1);
         processRouterMap.put(ProcessType.STATE_LANG.getCode(), stateMachineProcessRouter);
         defaultRouterHandler.setProcessRouters(processRouterMap);
 
+        // 定义业务处理器
         CustomizeBusinessProcessor customizeBusinessProcessor = new CustomizeBusinessProcessor();
 
+        // 处理器集合
         Map<String, ProcessHandler> processHandlerMap = new HashMap<>(1);
         processHandlerMap.put(ProcessType.STATE_LANG.getCode(), stateMachineProcessHandler);
         customizeBusinessProcessor.setProcessHandlers(processHandlerMap);
 
+        // 路由处理器集合
         Map<String, RouterHandler> routerHandlerMap = new HashMap<>(1);
         routerHandlerMap.put(ProcessType.STATE_LANG.getCode(), defaultRouterHandler);
         customizeBusinessProcessor.setRouterHandlers(routerHandlerMap);
 
+        // 默认流程控制器
         ProcessControllerImpl processorController = new ProcessControllerImpl();
         processorController.setBusinessProcessor(customizeBusinessProcessor);
 
@@ -227,7 +256,7 @@ public class DefaultStateMachineConfig implements StateMachineConfig, Applicatio
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        init();
+        init(); // 初始化
     }
 
     @Override

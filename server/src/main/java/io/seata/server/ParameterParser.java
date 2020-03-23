@@ -60,16 +60,25 @@ public class ParameterParser {
 
     @Parameter(names = "--help", help = true)
     private boolean help;
+
+    // 注册中心
     @Parameter(names = {"--host", "-h"}, description = "The ip to register to registry center.", order = 1)
     private String host;
+
+    // 监听端口号
     @Parameter(names = {"--port", "-p"}, description = "The port to listen.", order = 2)
     private int port = SERVER_DEFAULT_PORT;
+
+    // 日志存储模式
     @Parameter(names = {"--storeMode", "-m"}, description = "log store mode : file, db", order = 3)
     private String storeMode;
+
+    //当前服务节点编号
     @Parameter(names = {"--serverNode", "-n"}, description = "server node id, such as 1, 2, 3. default is 1", order = 4)
     private int serverNode = SERVER_DEFAULT_NODE;
-    @Parameter(names = {"--seataEnv", "-e"}, description = "The name used for multi-configuration isolation.",
-        order = 5)
+
+    // 环境(product, test ...)
+    @Parameter(names = {"--seataEnv", "-e"}, description = "The name used for multi-configuration isolation.", order = 5)
     private String seataEnv;
 
     /**
@@ -86,6 +95,7 @@ public class ParameterParser {
             boolean inContainer = this.isRunningInContainer();
 
             if (inContainer) {
+                // 容器中运行时, 直接从环境变量中解析参数
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("The server is running in container.");
                 }
@@ -96,9 +106,11 @@ public class ParameterParser {
                 this.port = NumberUtils.toInt(System.getenv(ENV_SEATA_PORT_KEY), SERVER_DEFAULT_PORT);
                 this.storeMode = StringUtils.trimToNull(System.getenv(ENV_STORE_MODE_KEY));
             } else {
+                // 解析启动时配置的参数
                 JCommander jCommander = JCommander.newBuilder().addObject(this).build();
                 jCommander.parse(args);
                 if (help) {
+                    // 如果是帮助, 输出help文案
                     jCommander.setProgramName(PROGRAM_NAME);
                     jCommander.usage();
                     System.exit(0);
@@ -108,8 +120,9 @@ public class ParameterParser {
                 System.setProperty(ENV_PROPERTY_KEY, seataEnv);
             }
             if (StringUtils.isBlank(storeMode)) {
-                storeMode = ConfigurationFactory.getInstance().getConfig(ConfigurationKeys.STORE_MODE,
-                    SERVER_DEFAULT_STORE_MODE);
+                // 如果启动时配置存储方式参数为空, 从配置文件中获取
+                storeMode = ConfigurationFactory.getInstance()
+                    .getConfig(ConfigurationKeys.STORE_MODE, SERVER_DEFAULT_STORE_MODE);
             }
         } catch (ParameterException e) {
             printError(e);
@@ -125,6 +138,7 @@ public class ParameterParser {
     }
 
     /**
+     * 是否运行在容器中
      * Judge if application is run in container.
      *
      * @return If application is run in container

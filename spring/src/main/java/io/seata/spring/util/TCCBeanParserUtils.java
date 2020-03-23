@@ -35,6 +35,7 @@ public class TCCBeanParserUtils {
     }
 
     /**
+     * 是否是TCC代理
      * is auto proxy TCC bean
      *
      * @param bean               the bean
@@ -44,7 +45,7 @@ public class TCCBeanParserUtils {
      */
     public static boolean isTccAutoProxy(Object bean, String beanName, ApplicationContext applicationContext) {
         boolean isRemotingBean = parserRemotingServiceInfo(bean, beanName);
-        //get RemotingBean description
+        //get RemotingBean description 获取远程Bean信息
         RemotingDesc remotingDesc = DefaultRemotingParser.get().getRemotingBeanDesc(beanName);
         //is remoting bean
         if (isRemotingBean) {
@@ -133,6 +134,7 @@ public class TCCBeanParserUtils {
     }
 
     /**
+     * 解析远程服务信息
      * get remoting bean info: sofa:service, sofa:reference, dubbo:reference, dubbo:service
      *
      * @param bean     the bean

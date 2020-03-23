@@ -41,6 +41,11 @@ import java.util.List;
  */
 public class MySQLUpdateRecognizer extends BaseMySQLRecognizer implements SQLUpdateRecognizer {
 
+    /**
+     * SQL声明(抽象语法树)
+     * https://github.com/alibaba/druid/wiki/Druid_SQL_AST#24-sqlselect--sqlselectquery
+     * AbstractSyntaxTree ast
+     */
     private MySqlUpdateStatement ast;
 
     /**
@@ -59,8 +64,15 @@ public class MySQLUpdateRecognizer extends BaseMySQLRecognizer implements SQLUpd
         return SQLType.UPDATE;
     }
 
+    /**
+     * 获取需要更新的列
+     * update t_business set count = count - 2 where id = ?
+     * count
+     * @return
+     */
     @Override
     public List<String> getUpdateColumns() {
+        // 更新项集合(List(count = count - 2))
         List<SQLUpdateSetItem> updateSetItems = ast.getItems();
         List<String> list = new ArrayList<>(updateSetItems.size());
         for (SQLUpdateSetItem updateSetItem : updateSetItems) {
@@ -97,6 +109,12 @@ public class MySQLUpdateRecognizer extends BaseMySQLRecognizer implements SQLUpd
         return list;
     }
 
+    /**
+     * 获取条件列
+     * update t_business set count = count - 2 where id = ?
+     * id = ?
+     * @return
+     */
     @Override
     public String getWhereCondition(final ParametersHolder parametersHolder,
                                     final ArrayList<List<Object>> paramAppenderList) {

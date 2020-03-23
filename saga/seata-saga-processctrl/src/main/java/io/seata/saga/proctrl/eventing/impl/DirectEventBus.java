@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * 透传事件BUS
  * Deliver event to event consumer directly
  *
  * @author lorne.cl

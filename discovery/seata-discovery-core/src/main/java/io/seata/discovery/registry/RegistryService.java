@@ -92,10 +92,11 @@ public interface RegistryService<T> {
     void close() throws Exception;
 
     /**
+     * 从当前配置文件中获取Server地址
      * Get current service group name
      *
      * @param key service group
-     * @return the service group name
+     * @return the service group name "service.vgroupMapping.${key}"
      */
     default String getServiceGroup(String key) {
         Configuration config = ConfigurationFactory.getInstance();

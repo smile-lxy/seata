@@ -77,7 +77,6 @@ public class NettyServerConfig extends NettyBaseConfig {
     public static boolean enableEpoll() {
         return NettyBaseConfig.SERVER_CHANNEL_CLAZZ.equals(EpollServerSocketChannel.class)
             && Epoll.isAvailable();
-
     }
 
     /**

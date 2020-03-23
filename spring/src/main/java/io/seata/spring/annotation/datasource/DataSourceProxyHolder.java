@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.seata.rm.datasource.DataSourceProxy;
 
 /**
+ * 数据源代理持有者
  * the type data source proxy holder
  *
  * @author xingfudeshi@gmail.com

@@ -25,6 +25,7 @@ import java.util.List;
 public interface SQLUpdateRecognizer extends WhereRecognizer {
 
     /**
+     * 获取更新列
      * Gets update columns.
      *
      * @return the update columns
@@ -32,6 +33,7 @@ public interface SQLUpdateRecognizer extends WhereRecognizer {
     List<String> getUpdateColumns();
 
     /**
+     * 获取更新值
      * Gets update values.
      *
      * @return the update values

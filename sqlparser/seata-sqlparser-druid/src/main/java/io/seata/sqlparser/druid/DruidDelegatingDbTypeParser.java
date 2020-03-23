@@ -38,6 +38,7 @@ public class DruidDelegatingDbTypeParser implements DbTypeParser {
      * @param classLoader classLoader
      */
     void setClassLoader(ClassLoader classLoader) {
+        // 反射实例化
         try {
             Class<?> druidDbTypeParserImplClass = classLoader.loadClass("io.seata.sqlparser.druid.DruidDbTypeParserImpl");
             Constructor<?> implConstructor = druidDbTypeParserImplClass.getDeclaredConstructor();

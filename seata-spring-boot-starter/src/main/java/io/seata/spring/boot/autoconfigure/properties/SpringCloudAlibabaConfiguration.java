@@ -39,6 +39,7 @@ public class SpringCloudAlibabaConfiguration implements ApplicationContextAware 
     private ApplicationContext applicationContext;
 
     /**
+     * 应用名称, 默认: 当前应用名称 '${spring.application.name}'
      * Gets application id.
      *
      * @return the application id
@@ -51,6 +52,7 @@ public class SpringCloudAlibabaConfiguration implements ApplicationContextAware 
     }
 
     /**
+     * 事务服务范围, 默认: '${spring.application.name}-seata-service-group'
      * Gets tx service group.
      *
      * @return the tx service group

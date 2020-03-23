@@ -45,8 +45,8 @@ public class PrometheusExporter extends Collector implements Collector.Describab
     private Registry registry;
 
     public PrometheusExporter() throws IOException {
-        int port = ConfigurationFactory.getInstance().getInt(
-            ConfigurationKeys.METRICS_PREFIX + METRICS_EXPORTER_PROMETHEUS_PORT, 9898);
+        int port = ConfigurationFactory.getInstance()
+            .getInt(ConfigurationKeys.METRICS_PREFIX + METRICS_EXPORTER_PROMETHEUS_PORT, 9898);
         this.server = new HTTPServer(port, true);
         this.register();
     }
@@ -71,6 +71,9 @@ public class PrometheusExporter extends Collector implements Collector.Describab
         return familySamples;
     }
 
+    /**
+     * 转换仪表数据
+     */
     private Sample convertMeasurementToSample(Measurement measurement) {
         String prometheusName = measurement.getId().getName().replace(".", "_");
         List<String> labelNames = new ArrayList<>();

@@ -52,6 +52,7 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
             @Override
             public void execute(BranchCommitRequest request, BranchCommitResponse response)
                 throws TransactionException {
+                // 执行Branch 提交
                 doBranchCommit(request, response);
             }
         }, request, response);
@@ -65,6 +66,7 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
             @Override
             public void execute(BranchRollbackRequest request, BranchRollbackResponse response)
                 throws TransactionException {
+                // 执行Branch 回滚
                 doBranchRollback(request, response);
             }
         }, request, response);
@@ -94,8 +96,9 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Branch committing: " + xid + " " + branchId + " " + resourceId + " " + applicationData);
         }
-        BranchStatus status = getResourceManager().branchCommit(request.getBranchType(), xid, branchId, resourceId,
-            applicationData);
+        // 获取相关RM处理器处理
+        BranchStatus status = getResourceManager()
+            .branchCommit(request.getBranchType(), xid, branchId, resourceId, applicationData);
         response.setXid(xid);
         response.setBranchId(branchId);
         response.setBranchStatus(status);
@@ -121,8 +124,9 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Branch Rollbacking: " + xid + " " + branchId + " " + resourceId);
         }
-        BranchStatus status = getResourceManager().branchRollback(request.getBranchType(), xid, branchId, resourceId,
-            applicationData);
+        // 获取相关RM处理器处理
+        BranchStatus status = getResourceManager()
+            .branchRollback(request.getBranchType(), xid, branchId, resourceId, applicationData);
         response.setXid(xid);
         response.setBranchId(branchId);
         response.setBranchStatus(status);
@@ -145,7 +149,7 @@ public abstract class AbstractRMHandler extends AbstractExceptionHandler
         }
         AbstractTransactionRequestToRM transactionRequest = (AbstractTransactionRequestToRM)request;
         transactionRequest.setRMInboundMessageHandler(this);
-
+        // 相应事务处理器处理请求
         return transactionRequest.handle(context);
     }
 

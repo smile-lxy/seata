@@ -60,6 +60,7 @@ public class RpcServerBootstrap implements RemotingServer {
     public RpcServerBootstrap(NettyServerConfig nettyServerConfig) {
 
         this.nettyServerConfig = nettyServerConfig;
+        // 根本配置选择不同负载模式
         if (NettyServerConfig.enableEpoll()) {
             this.eventLoopGroupBoss = new EpollEventLoopGroup(nettyServerConfig.getBossThreadSize(),
                 new NamedThreadFactory(nettyServerConfig.getBossThreadPrefix(), nettyServerConfig.getBossThreadSize()));
@@ -74,6 +75,7 @@ public class RpcServerBootstrap implements RemotingServer {
                     nettyServerConfig.getServerWorkerThreads()));
         }
 
+        // 配置默认监听端口
         // init listenPort in constructor so that getListenPort() will always get the exact port
         setListenPort(nettyServerConfig.getDefaultListenPort());
     }
@@ -126,24 +128,34 @@ public class RpcServerBootstrap implements RemotingServer {
     @Override
     public void start() {
         this.serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupWorker)
+            // Channel选择器
             .channel(nettyServerConfig.SERVER_CHANNEL_CLAZZ)
+            // 服务器请求处理线程全满时, 临时存放已完成三次握手的请求的队列最大大小
             .option(ChannelOption.SO_BACKLOG, nettyServerConfig.getSoBackLogSize())
+            // 是否允许公用端口
             .option(ChannelOption.SO_REUSEADDR, true)
+            // 是否启动心跳保活机制
             .childOption(ChannelOption.SO_KEEPALIVE, true)
+            // 是否尽可能利用网络带宽, 尽可能发送足够大的数据包(要求高实时性(有数据就发): true, 减少网络交互: false)
             .childOption(ChannelOption.TCP_NODELAY, true)
+            // 发送消息时系统缓存区大小
             .childOption(ChannelOption.SO_SNDBUF, nettyServerConfig.getServerSocketSendBufSize())
+            // 接受消息时系统缓存区大小
             .childOption(ChannelOption.SO_RCVBUF, nettyServerConfig.getServerSocketResvBufSize())
+            // 向channel写数据时, 缓冲区边界(https://www.iteye.com/blog/laolinshi-2341729)
             .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,
                 new WriteBufferWaterMark(nettyServerConfig.getWriteBufferLowWaterMark(),
                     nettyServerConfig.getWriteBufferHighWaterMark()))
             .localAddress(new InetSocketAddress(listenPort))
-            .childHandler(new ChannelInitializer<SocketChannel>() {
+            .childHandler(new ChannelInitializer<SocketChannel>() { // client连接后handler链
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    ch.pipeline().addLast(new IdleStateHandler(nettyServerConfig.getChannelMaxReadIdleSeconds(), 0, 0))
-                        .addLast(new ProtocolV1Decoder())
-                        .addLast(new ProtocolV1Encoder());
+                    ch.pipeline()
+                        .addLast(new IdleStateHandler(nettyServerConfig.getChannelMaxReadIdleSeconds(), 0, 0)) //心跳包
+                        .addLast(new ProtocolV1Decoder()) // 数据包解码器
+                        .addLast(new ProtocolV1Encoder()); // 数据包编码器
                     if (null != channelHandlers) {
+                        // 添加额外handler链, 目前只有'AbstractRpcRemotingServer.ServerHandler'
                         addChannelPipelineLast(ch, channelHandlers);
                     }
 
@@ -153,8 +165,11 @@ public class RpcServerBootstrap implements RemotingServer {
         try {
             ChannelFuture future = this.serverBootstrap.bind(listenPort).sync();
             LOGGER.info("Server started ... ");
+            // 向注册中心注册
             RegistryFactory.getInstance().register(new InetSocketAddress(XID.getIpAddress(), XID.getPort()));
+            // RPC 初始化成功
             initialized.set(true);
+            // 一直等待, 直到Socket被关闭
             future.channel().closeFuture().sync();
         } catch (Exception exx) {
             throw new RuntimeException(exx);
@@ -169,12 +184,14 @@ public class RpcServerBootstrap implements RemotingServer {
                 LOGGER.debug("Shutting server down. ");
             }
             if (initialized.get()) {
+                // 通知对应注册中心实现, 取消注册
                 RegistryFactory.getInstance().unregister(new InetSocketAddress(XID.getIpAddress(), XID.getPort()));
                 RegistryFactory.getInstance().close();
                 //wait a few seconds for server transport
                 TimeUnit.SECONDS.sleep(nettyServerConfig.getServerShutdownWaitTime());
             }
 
+            // 优雅关闭
             this.eventLoopGroupBoss.shutdownGracefully();
             this.eventLoopGroupWorker.shutdownGracefully();
         } catch (Exception exx) {

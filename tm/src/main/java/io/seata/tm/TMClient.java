@@ -32,6 +32,7 @@ public class TMClient {
      */
     public static void init(String applicationId, String transactionServiceGroup) {
         TmRpcClient tmRpcClient = TmRpcClient.getInstance(applicationId, transactionServiceGroup);
+        // 初始化
         tmRpcClient.init();
     }
 

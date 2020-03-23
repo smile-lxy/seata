@@ -44,14 +44,17 @@ public class GlobalTransactionContext {
      * @return null if no transaction context there.
      */
     private static GlobalTransaction getCurrent() {
+        // 事务ID
         String xid = RootContext.getXID();
         if (xid == null) {
             return null;
         }
+        // 封装参与者事务
         return new DefaultGlobalTransaction(xid, GlobalStatus.Begin, GlobalTransactionRole.Participant);
     }
 
     /**
+     * 获取或创建一个新的全局事务
      * Get GlobalTransaction instance bind on current thread. Create a new on if no existing there.
      *
      * @return new context if no existing there.

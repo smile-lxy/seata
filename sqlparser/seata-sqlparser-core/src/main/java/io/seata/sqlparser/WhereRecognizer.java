@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Where 条件识别器
  * The interface Where recognizer.
  *
  * @author sharajava
@@ -26,10 +27,11 @@ import java.util.List;
 public interface WhereRecognizer extends SQLRecognizer {
 
     /**
+     * 获取Where条件
      * Gets where condition.
      *
      * @param parametersHolder the parameters holder
-     * @param paramAppenderList    the param appender list
+     * @param paramAppenderList    the param appender list 参数追加集合
      * @return the where condition
      */
     String getWhereCondition(ParametersHolder parametersHolder, ArrayList<List<Object>> paramAppenderList);

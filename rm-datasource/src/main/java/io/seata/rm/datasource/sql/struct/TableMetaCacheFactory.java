@@ -37,6 +37,7 @@ public class TableMetaCacheFactory {
         if (TABLE_META_CACHE_MAP.get(dbType) != null) {
             return TABLE_META_CACHE_MAP.get(dbType);
         }
+        // SPI机制加载
         TableMetaCache tableMetaCache = EnhancedServiceLoader.load(TableMetaCache.class, dbType);
         TABLE_META_CACHE_MAP.putIfAbsent(dbType, tableMetaCache);
         return tableMetaCache;

@@ -93,9 +93,9 @@ public class TCCResourceManager extends AbstractResourceManager {
         }
         try {
             boolean result = false;
-            //BusinessActionContext
-            BusinessActionContext businessActionContext = getBusinessActionContext(xid, branchId, resourceId,
-                applicationData);
+            //BusinessActionContext 业务上下文
+            BusinessActionContext businessActionContext = getBusinessActionContext(xid, branchId, resourceId, applicationData);
+            // 反射执行Commit操作
             Object ret = commitMethod.invoke(targetTCCBean, businessActionContext);
             LOGGER.info("TCC resource commit result : {}, xid: {}, branchId: {}, resourceId: {}", ret, xid, branchId, resourceId);
             if (ret != null) {
@@ -138,9 +138,9 @@ public class TCCResourceManager extends AbstractResourceManager {
         }
         try {
             boolean result = false;
-            //BusinessActionContext
-            BusinessActionContext businessActionContext = getBusinessActionContext(xid, branchId, resourceId,
-                applicationData);
+            //BusinessActionContext 业务上下文
+            BusinessActionContext businessActionContext = getBusinessActionContext(xid, branchId, resourceId, applicationData);
+            // 反射执行rollback操作
             Object ret = rollbackMethod.invoke(targetTCCBean, businessActionContext);
             LOGGER.info("TCC resource rollback result : {}, xid: {}, branchId: {}, resourceId: {}", ret, xid, branchId, resourceId);
             if (ret != null) {

@@ -38,7 +38,7 @@ import static io.seata.spring.annotation.datasource.AutoDataSourceProxyRegistrar
 @ComponentScan(basePackages = "io.seata.spring.boot.autoconfigure.properties")
 @ConditionalOnProperty(prefix = StarterConstants.SEATA_PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @Configuration
-@EnableConfigurationProperties({SeataProperties.class})
+@EnableConfigurationProperties({SeataProperties.class}) // 加载配置文件
 public class SeataAutoConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(SeataAutoConfiguration.class);
 
@@ -58,6 +58,11 @@ public class SeataAutoConfiguration {
         return new GlobalTransactionScanner(seataProperties.getApplicationId(), seataProperties.getTxServiceGroup());
     }
 
+    /**
+     * Seata 数据库源强化
+     * @param seataProperties
+     * @return
+     */
     @Bean(BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR)
     @ConditionalOnProperty(prefix = StarterConstants.SEATA_PREFIX, name = {"enableAutoDataSourceProxy", "enable-auto-data-source-proxy"}, havingValue = "true", matchIfMissing = true)
     @ConditionalOnMissingBean(SeataDataSourceBeanPostProcessor.class)

@@ -41,10 +41,12 @@ public class DefaultRMHandler extends AbstractRMHandler {
         = new ConcurrentHashMap<BranchType, AbstractRMHandler>();
 
     protected DefaultRMHandler() {
+        // 初始化RM处理器
         initRMHandlers();
     }
 
     protected void initRMHandlers() {
+        // SPI机制加载
         List<AbstractRMHandler> allRMHandlers = EnhancedServiceLoader.loadAll(AbstractRMHandler.class);
         if (CollectionUtils.isNotEmpty(allRMHandlers)) {
             for (AbstractRMHandler rmHandler : allRMHandlers) {

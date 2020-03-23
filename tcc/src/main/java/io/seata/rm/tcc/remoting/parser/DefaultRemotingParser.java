@@ -63,6 +63,7 @@ public class DefaultRemotingParser {
     }
 
     /**
+     * 初始化默认远程解析器
      * Instantiates a new Default remoting parser.
      */
     protected DefaultRemotingParser() {
@@ -73,7 +74,7 @@ public class DefaultRemotingParser {
      * init parsers
      */
     protected void initRemotingParser() {
-        //init all resource managers
+        //init all resource managers 初始化提供者
         List<RemotingParser> remotingParsers = EnhancedServiceLoader.loadAll(RemotingParser.class);
         if (CollectionUtils.isNotEmpty(remotingParsers)) {
             allRemotingParsers.addAll(remotingParsers);
@@ -81,6 +82,7 @@ public class DefaultRemotingParser {
     }
 
     /**
+     * 获取相应远程解析器
      * is remoting bean ?
      *
      * @param bean     the bean
@@ -153,6 +155,7 @@ public class DefaultRemotingParser {
     }
 
     /**
+     * 解析远程Bean信息
      * parse the remoting bean info
      *
      * @param bean     the bean
@@ -160,21 +163,26 @@ public class DefaultRemotingParser {
      * @return remoting desc
      */
     public RemotingDesc parserRemotingServiceInfo(Object bean, String beanName, RemotingParser remotingParser) {
+        // 远程Bean信息
         RemotingDesc remotingBeanDesc = remotingParser.getServiceDesc(bean, beanName);
         if (remotingBeanDesc == null) {
             return null;
         }
+        // 存入集合中
         remotingServiceMap.put(beanName, remotingBeanDesc);
 
         Class<?> interfaceClass = remotingBeanDesc.getInterfaceClass();
+        // TCC需要在接口层声明注解
         Method[] methods = interfaceClass.getMethods();
         if (remotingParser.isService(bean, beanName)) {
             try {
                 //service bean, registry resource
                 Object targetBean = remotingBeanDesc.getTargetBean();
                 for (Method m : methods) {
+                    // 注解信息
                     TwoPhaseBusinessAction twoPhaseBusinessAction = m.getAnnotation(TwoPhaseBusinessAction.class);
                     if (twoPhaseBusinessAction != null) {
+                        // 组装TCC资源信息, 注册到资源池中, 方便事务拦截时使用
                         TCCResource tccResource = new TCCResource();
                         tccResource.setActionName(twoPhaseBusinessAction.name());
                         tccResource.setTargetBean(targetBean);

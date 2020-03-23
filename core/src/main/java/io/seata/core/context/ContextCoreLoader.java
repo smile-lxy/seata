@@ -31,7 +31,8 @@ public class ContextCoreLoader {
     }
 
     private static class ContextCoreHolder {
-        private static final ContextCore INSTANCE = Optional.ofNullable(EnhancedServiceLoader.load(ContextCore.class)).orElse(new ThreadLocalContextCore());
+        private static final ContextCore INSTANCE = Optional.ofNullable(EnhancedServiceLoader.load(ContextCore.class))
+            .orElse(new ThreadLocalContextCore());
     }
 
     /**

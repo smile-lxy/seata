@@ -40,6 +40,7 @@ public class SpringProxyUtils {
     }
 
     /**
+     * 目标类 actual
      * Find target class class.
      *
      * @param proxy the proxy
@@ -48,8 +49,10 @@ public class SpringProxyUtils {
      */
     public static Class<?> findTargetClass(Object proxy) throws Exception {
         if (AopUtils.isAopProxy(proxy)) {
+            // 是否是代理类
             AdvisedSupport advised = getAdvisedSupport(proxy);
             if (AopUtils.isJdkDynamicProxy(proxy)) {
+                // JDK动态代理
                 TargetSource targetSource = advised.getTargetSource();
                 return targetSource instanceof EmptyTargetSource ? getFirstInterfaceByAdvised(advised)
                     : targetSource.getTargetClass();

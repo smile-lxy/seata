@@ -67,12 +67,14 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
         new NamedThreadFactory("RedisRegistryService", 1));
 
     private RedisRegistryServiceImpl() {
+        // 解析配置文件
         Configuration seataConfig = ConfigurationFactory.CURRENT_FILE_INSTANCE;
         this.clusterName = seataConfig.getConfig(REDIS_FILEKEY_PREFIX + REGISTRY_CLUSTER_KEY, DEFAULT_CLUSTER);
         String password = seataConfig.getConfig(getRedisPasswordFileKey());
         String serverAddr = seataConfig.getConfig(getRedisAddrFileKey());
         String[] serverArr = serverAddr.split(":");
         String host = serverArr[0];
+        // 解析Redis所需参数
         int port = Integer.parseInt(serverArr[1]);
         int db = seataConfig.getInt(getRedisDbFileKey());
         GenericObjectPoolConfig redisConfig = new GenericObjectPoolConfig();
@@ -114,6 +116,7 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
         if (minEvictableIdleTimeMillis > 0) {
             redisConfig.setMinEvictableIdleTimeMillis(minEvictableIdleTimeMillis);
         }
+        // 实例化线程池
         if (StringUtils.isNullOrEmpty(password)) {
             jedisPool = new JedisPool(redisConfig, host, port, Protocol.DEFAULT_TIMEOUT, null, db);
         } else {
@@ -142,29 +145,45 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
         NetUtil.validAddress(address);
         String serverAddr = NetUtil.toStringAddress(address);
         try (Jedis jedis = jedisPool.getResource()) {
+            // 设置实例信息
             jedis.hset(getRedisRegistryKey(), serverAddr, ManagementFactory.getRuntimeMXBean().getName());
+            // 标识实例已注册
             jedis.publish(getRedisRegistryKey(), serverAddr + "-" + RedisListener.REGISTER);
         }
     }
 
+    /**
+     * 取消注册
+     * @param address the address
+     */
     @Override
     public void unregister(InetSocketAddress address) {
         NetUtil.validAddress(address);
         String serverAddr = NetUtil.toStringAddress(address);
         try (Jedis jedis = jedisPool.getResource()) {
+            // 从已注册缓存中移除实例
             jedis.hdel(getRedisRegistryKey(), serverAddr);
+            // 标识实例已取消注册
             jedis.publish(getRedisRegistryKey(), serverAddr + "-" + RedisListener.UN_REGISTER);
         }
     }
 
+    /**
+     * 添加订阅者, 监听事件
+     * @param cluster  the cluster
+     * @param listener the listener
+     */
     @Override
     public void subscribe(String cluster, RedisListener listener) {
+        // "registry.redis.${cluster}"
         String redisRegistryKey = REDIS_FILEKEY_PREFIX + cluster;
+        // 向缓存中追加
         LISTENER_SERVICE_MAP.putIfAbsent(cluster, new ArrayList<>());
         LISTENER_SERVICE_MAP.get(cluster).add(listener);
         threadPoolExecutor.submit(() -> {
             try {
                 try (Jedis jedis = jedisPool.getResource()) {
+                    // 添加订阅者, 监听事件
                     jedis.subscribe(new NotifySub(LISTENER_SERVICE_MAP.get(cluster)), redisRegistryKey);
                 }
             } catch (Exception e) {
@@ -177,32 +196,44 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
     public void unsubscribe(String cluster, RedisListener listener) {
     }
 
+    /**
+     * 获取服务地址列表
+     * @param key the key
+     * @return
+     */
     @Override
     public List<InetSocketAddress> lookup(String key) {
         String clusterName = getServiceGroup(key);
         if (null == clusterName) {
             return null;
         }
+        // 监听器缓存集合中不存在, 添加监听器
         if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
             Map<String, String> instances;
             try (Jedis jedis = jedisPool.getResource()) {
+                // 实例
                 instances = jedis.hgetAll(getRedisRegistryKey());
             }
             if (null != instances && !instances.isEmpty()) {
+                // 组装, 缓存
                 Set<InetSocketAddress> newAddressSet = instances.keySet().stream()
                         .map(NetUtil::toInetSocketAddress)
                         .collect(Collectors.toSet());
                 CLUSTER_ADDRESS_MAP.put(clusterName, newAddressSet);
             }
+            // 添加订阅者, 监听事件
             subscribe(clusterName, msg -> {
                 String[] msgr = msg.split("-");
                 String serverAddr = msgr[0];
                 String eventType = msgr[1];
+                // 根据事件类型处理
                 switch (eventType) {
                     case RedisListener.REGISTER:
+                        // 向缓存中追加
                         CLUSTER_ADDRESS_MAP.get(clusterName).add(NetUtil.toInetSocketAddress(serverAddr));
                         break;
                     case RedisListener.UN_REGISTER:
+                        // 从缓存中移除
                         CLUSTER_ADDRESS_MAP.get(clusterName).remove(NetUtil.toInetSocketAddress(serverAddr));
                         break;
                     default:
@@ -210,9 +241,14 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
                 }
             });
         }
+        // 缓存中获取
         return new ArrayList<>(CLUSTER_ADDRESS_MAP.getOrDefault(clusterName, Collections.emptySet()));
     }
 
+    /**
+     * 线程池关闭
+     * @throws Exception
+     */
     @Override
     public void close() throws Exception {
         jedisPool.destroy();
@@ -239,18 +275,30 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
         }
     }
 
+    /**
+     * @return "registry.redis.${clusterName}"
+     */
     private String getRedisRegistryKey() {
         return REDIS_FILEKEY_PREFIX + clusterName;
     }
 
+    /**
+     * @return "registry.redis.serverAddr"
+     */
     private String getRedisAddrFileKey() {
         return REDIS_FILEKEY_PREFIX + PRO_SERVER_ADDR_KEY;
     }
 
+    /**
+     * @return "registry.redis.password"
+     */
     private String getRedisPasswordFileKey() {
         return REDIS_FILEKEY_PREFIX + REDIS_PASSWORD;
     }
 
+    /**
+     * @return "registry.redis.db"
+     */
     private String getRedisDbFileKey() {
         return REDIS_FILEKEY_PREFIX + REDIS_DB;
     }

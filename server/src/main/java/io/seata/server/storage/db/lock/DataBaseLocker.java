@@ -72,6 +72,7 @@ public class DataBaseLocker extends AbstractLocker {
             return true;
         }
         try {
+            // 解除锁
             return lockStore.unLock(convertToLockDO(locks));
         } catch (StoreException e) {
             throw e;
@@ -84,6 +85,7 @@ public class DataBaseLocker extends AbstractLocker {
     @Override
     public boolean releaseLock(String xid, Long branchId) {
         try {
+            // 解锁
             return lockStore.unLock(xid, branchId);
         } catch (StoreException e) {
             throw e;
@@ -100,6 +102,7 @@ public class DataBaseLocker extends AbstractLocker {
             return true;
         }
         try {
+            // 解锁
             return lockStore.unLock(xid, branchIds);
         } catch (StoreException e) {
             throw e;

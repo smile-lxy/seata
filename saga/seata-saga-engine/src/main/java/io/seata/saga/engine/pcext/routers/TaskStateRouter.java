@@ -53,8 +53,7 @@ public class TaskStateRouter implements StateRouter {
         StateInstruction stateInstruction = context.getInstruction(StateInstruction.class);
         if (stateInstruction.isEnd()) {
             if (LOGGER.isInfoEnabled()) {
-                LOGGER.info(
-                    "StateInstruction is ended, Stop the StateMachine executing. StateMachine[{}] Current State[{}]",
+                LOGGER.info("StateInstruction is ended, Stop the StateMachine executing. StateMachine[{}] Current State[{}]",
                     stateInstruction.getStateMachineName(), state.getName());
             }
             return null;
@@ -62,8 +61,7 @@ public class TaskStateRouter implements StateRouter {
 
         //The current CompensationTriggerState can mark the compensation process is started and perform compensation
         // route processing.
-        State compensationTriggerState = (State)context.getVariable(
-            DomainConstants.VAR_NAME_CURRENT_COMPEN_TRIGGER_STATE);
+        State compensationTriggerState = (State)context.getVariable(DomainConstants.VAR_NAME_CURRENT_COMPEN_TRIGGER_STATE);
         if (compensationTriggerState != null) {
             return compensateRoute(context, compensationTriggerState);
         }
@@ -91,8 +89,7 @@ public class TaskStateRouter implements StateRouter {
 
         State nextState = stateMachine.getState(next);
         if (nextState == null) {
-            throw new EngineExecutionException("Next state[" + next + "] is not exits",
-                FrameworkErrorCode.ObjectNotExists);
+            throw new EngineExecutionException("Next state[" + next + "] is not exits", FrameworkErrorCode.ObjectNotExists);
         }
 
         stateInstruction.setStateName(next);

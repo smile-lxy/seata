@@ -63,6 +63,7 @@ public class EnhancedServiceLoader {
     }
 
     /**
+     * 获取接口对应的提供者
      * load service provider
      *
      * @param <S>     the type parameter
@@ -152,6 +153,7 @@ public class EnhancedServiceLoader {
     }
 
     /**
+     * 获取所有提供者, 实例化
      * get all implements
      *
      * @param <S>     the type parameter
@@ -210,20 +212,22 @@ public class EnhancedServiceLoader {
                                   Object[] args) {
         try {
             boolean foundFromCache = true;
-            List<Class> extensions = providers.get(service);
+            List<Class> extensions = providers.get(service); // 从缓存中读取
             if (extensions == null) {
                 synchronized (service) {
                     extensions = providers.get(service);
                     if (extensions == null) {
                         extensions = findAllExtensionClass(service, activateName, loader);
                         foundFromCache = false;
-                        providers.put(service, extensions);
+                        providers.put(service, extensions); // 缓存
                     }
                 }
             }
             if (StringUtils.isNotEmpty(activateName)) {
+                // 读取'META-INF/seata/${activateName}/${server}/AppClassLoader'文件内读取提供者, SPI机制
                 loadFile(service, SEATA_DIRECTORY + activateName.toLowerCase() + "/", loader, extensions);
 
+                // 留下标有'LoadLevel'标签, 标签的name为${activateName}的Class
                 List<Class> activateExtensions = new ArrayList<>();
                 for (Class clz : extensions) {
                     @SuppressWarnings("unchecked")
@@ -241,6 +245,7 @@ public class EnhancedServiceLoader {
                     "not found service provider for : " + service.getName() + "[" + activateName
                         + "] and classloader : " + ObjectUtils.toString(loader));
             }
+            // 获取最后一个Class进行实例化(先前已根据LoadLevel的sort进行排序), 实例化优先级最高的
             Class<?> extension = extensions.get(extensions.size() - 1);
             S result = initInstance(service, extension, argTypes, args);
             if (!foundFromCache && LOGGER.isInfoEnabled()) {
@@ -263,7 +268,9 @@ public class EnhancedServiceLoader {
     private static <S> List<Class> findAllExtensionClass(Class<S> service, String activateName, ClassLoader loader) {
         List<Class> extensions = new ArrayList<>();
         try {
+            // 从'META-INF/services/Xxxx'文件内读取提供者, SPI机制
             loadFile(service, SERVICES_DIRECTORY, loader, extensions);
+            // 从'META-INF/seata/Xxxx'文件内读取提供者, SPI机制
             loadFile(service, SEATA_DIRECTORY, loader, extensions);
         } catch (IOException e) {
             throw new EnhancedServiceNotFoundException(e);
@@ -272,6 +279,7 @@ public class EnhancedServiceLoader {
         if (extensions.isEmpty()) {
             return extensions;
         }
+        // 根据标签上order排序
         extensions.sort((c1, c2) -> {
             int o1 = 0;
             int o2 = 0;
@@ -320,7 +328,7 @@ public class EnhancedServiceLoader {
                         }
                         line = line.trim();
                         if (line.length() > 0) {
-                            try {
+                            try { // 反射加载Class
                                 extensions.add(Class.forName(line, true, classLoader));
                             } catch (LinkageError | ClassNotFoundException e) {
                                 LOGGER.warn("load [{}] class fail. {}", line, e.getMessage());
@@ -354,14 +362,16 @@ public class EnhancedServiceLoader {
         throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         S s = null;
         if (argTypes != null && args != null) {
-            // Constructor with arguments
+            // Constructor with arguments 根据参数确定具体构造函数
             Constructor<S> constructor = implClazz.getDeclaredConstructor(argTypes);
+            // 实例化, 转换
             s = service.cast(constructor.newInstance(args));
         } else {
             // default Constructor
             s = service.cast(implClazz.newInstance());
         }
         if (s instanceof Initialize) {
+            // 若实例类为Seata下Initialize的实现类, 进行增强
             ((Initialize)s).init();
         }
         return s;

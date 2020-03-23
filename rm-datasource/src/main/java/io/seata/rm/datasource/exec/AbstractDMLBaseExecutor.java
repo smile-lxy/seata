@@ -53,8 +53,10 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
 
     @Override
     public T doExecute(Object... args) throws Throwable {
+        // 数据源连接代理
         AbstractConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
         if (connectionProxy.getAutoCommit()) {
+            // 连接是自动提交
             return executeAutoCommitTrue(args);
         } else {
             return executeAutoCommitFalse(args);
@@ -69,8 +71,10 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
      * @throws Exception the exception
      */
     protected T executeAutoCommitFalse(Object[] args) throws Exception {
+        // 生成操作前镜像
         TableRecords beforeImage = beforeImage();
         T result = statementCallback.execute(statementProxy.getTargetStatement(), args);
+        // 生成操作后镜像
         TableRecords afterImage = afterImage(beforeImage);
         prepareUndoLog(beforeImage, afterImage);
         return result;
@@ -86,12 +90,15 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
     protected T executeAutoCommitTrue(Object[] args) throws Throwable {
         ConnectionProxy connectionProxy = statementProxy.getConnectionProxy();
         try {
+            // 设置为手动提交
             connectionProxy.setAutoCommit(false);
-            return new LockRetryPolicy(connectionProxy).execute(() -> {
-                T result = executeAutoCommitFalse(args);
-                connectionProxy.commit();
-                return result;
-            });
+            return new LockRetryPolicy(connectionProxy)
+                .execute(() -> {
+                    T result = executeAutoCommitFalse(args);
+                    // 手动提交
+                    connectionProxy.commit();
+                    return result;
+                });
         } catch (Exception e) {
             // when exception occur in finally,this exception will lost, so just print it here
             LOGGER.error("execute executeAutoCommitTrue error:{}", e.getMessage(), e);
@@ -100,6 +107,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
             }
             throw e;
         } finally {
+            // 清理现场, 重置数据源连接上下文
             connectionProxy.getContext().reset();
             connectionProxy.setAutoCommit(true);
         }
@@ -140,10 +148,13 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
 
         @Override
         protected void onException(Exception e) throws Exception {
+            // 数据源连接上下文
             ConnectionContext context = connection.getContext();
             //UndoItems can't use the Set collection class to prevent ABA
+            // 清理现场(Undo log, lock key)
             context.getUndoItems().clear();
             context.getLockKeysBuffer().clear();
+            // 回滚事务
             connection.getTargetConnection().rollback();
         }
 

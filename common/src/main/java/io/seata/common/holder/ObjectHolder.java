@@ -37,7 +37,9 @@ public enum ObjectHolder {
     }
 
     public <T> T getObject(Class<T> clasz) {
-        return clasz.cast(OBJECT_MAP.values().stream().filter(clasz::isInstance).findAny().orElseThrow(() -> new ShouldNeverHappenException("Can't find any object of class " + clasz.getName())));
+        return clasz.cast(OBJECT_MAP.values().stream()
+            .filter(clasz::isInstance).findAny()
+            .orElseThrow(() -> new ShouldNeverHappenException("Can't find any object of class " + clasz.getName())));
     }
 
     public Object setObject(String objectKey, Object object) {

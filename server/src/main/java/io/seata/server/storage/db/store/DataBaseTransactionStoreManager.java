@@ -70,6 +70,7 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
     protected LogStore logStore;
 
     /**
+     * 单次事务查询条数
      * The Log query limit.
      */
     protected int logQueryLimit;
@@ -103,16 +104,22 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
     @Override
     public boolean writeSession(LogOperation logOperation, SessionStorable session) {
         if (LogOperation.GLOBAL_ADD.equals(logOperation)) {
+            // 添加Global事务信息
             return logStore.insertGlobalTransactionDO(convertGlobalTransactionDO(session));
         } else if (LogOperation.GLOBAL_UPDATE.equals(logOperation)) {
+            // 修改Global事务信息
             return logStore.updateGlobalTransactionDO(convertGlobalTransactionDO(session));
         } else if (LogOperation.GLOBAL_REMOVE.equals(logOperation)) {
+            // 删除Global事务信息
             return logStore.deleteGlobalTransactionDO(convertGlobalTransactionDO(session));
         } else if (LogOperation.BRANCH_ADD.equals(logOperation)) {
+            // 添加Branch事务信息
             return logStore.insertBranchTransactionDO(convertBranchTransactionDO(session));
         } else if (LogOperation.BRANCH_UPDATE.equals(logOperation)) {
+            // 修改Branch事务更新信息
             return logStore.updateBranchTransactionDO(convertBranchTransactionDO(session));
         } else if (LogOperation.BRANCH_REMOVE.equals(logOperation)) {
+            // 删除Branch事务信息
             return logStore.deleteBranchTransactionDO(convertBranchTransactionDO(session));
         } else {
             throw new StoreException("Unknown LogOperation:" + logOperation.name());
@@ -151,23 +158,24 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
     /**
      * Read session global session.
      *
-     * @param xid the xid
-     * @param withBranchSessions the withBranchSessions
+     * @param xid the xid 事务ID
+     * @param withBranchSessions the withBranchSessions 是否需要查询Branch事务
      * @return the global session
      */
     @Override
     public GlobalSession readSession(String xid, boolean withBranchSessions) {
-        //global transaction
+        //global transaction 全局事务
         GlobalTransactionDO globalTransactionDO = logStore.queryGlobalTransactionDO(xid);
         if (globalTransactionDO == null) {
             return null;
         }
-        //branch transactions
+        //branch transactions 分支事务
         List<BranchTransactionDO> branchTransactionDOs = null;
-        //reduce rpc with db when branchRegister and getGlobalStatus
+        //reduce rpc with db when branchRegister and getGlobalStatus 如果需要查询Branch事务, 就执行查询
         if (withBranchSessions) {
             branchTransactionDOs = logStore.queryBranchTransactionDO(globalTransactionDO.getXid());
         }
+        // 转换数据
         return getGlobalSession(globalTransactionDO, branchTransactionDOs);
     }
 
@@ -188,17 +196,21 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
             return null;
         }
         List<String> xids = globalTransactionDOs.stream().map(GlobalTransactionDO::getXid).collect(Collectors.toList());
+        // 获取全局事务Branch事务列表
         List<BranchTransactionDO> branchTransactionDOs = logStore.queryBranchTransactionDO(xids);
         Map<String, List<BranchTransactionDO>> branchTransactionDOsMap = branchTransactionDOs.stream()
             .collect(Collectors.groupingBy(BranchTransactionDO::getXid, LinkedHashMap::new, Collectors.toList()));
-        return globalTransactionDOs.stream().map(globalTransactionDO ->
-            getGlobalSession(globalTransactionDO, branchTransactionDOsMap.get(globalTransactionDO.getXid())))
-            .collect(Collectors.toList());
+        // 根据全局事务归类生成事务树
+        return globalTransactionDOs.stream()
+            .map(globalTransactionDO ->
+                getGlobalSession(globalTransactionDO, branchTransactionDOsMap.get(globalTransactionDO.getXid()))
+            ).collect(Collectors.toList());
     }
 
     @Override
     public List<GlobalSession> readSession(SessionCondition sessionCondition) {
         if (StringUtils.isNotBlank(sessionCondition.getXid())) {
+            // 根据全局事务ID获取
             GlobalSession globalSession = readSession(sessionCondition.getXid());
             if (globalSession != null) {
                 List<GlobalSession> globalSessions = new ArrayList<>();
@@ -206,6 +218,7 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
                 return globalSessions;
             }
         } else if (sessionCondition.getTransactionId() != null) {
+            // 根据事务ID获取
             GlobalSession globalSession = readSession(sessionCondition.getTransactionId());
             if (globalSession != null) {
                 List<GlobalSession> globalSessions = new ArrayList<>();
@@ -213,6 +226,7 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
                 return globalSessions;
             }
         } else if (CollectionUtils.isNotEmpty(sessionCondition.getStatuses())) {
+            // 根据事务状态获取
             return readSession(sessionCondition.getStatuses());
         }
         return null;
@@ -226,9 +240,11 @@ public class DataBaseTransactionStoreManager extends AbstractTransactionStoreMan
 
     private GlobalSession getGlobalSession(GlobalTransactionDO globalTransactionDO,
                                            List<BranchTransactionDO> branchTransactionDOs) {
+        // 转换全局事务
         GlobalSession globalSession = convertGlobalSession(globalTransactionDO);
         //branch transactions
         if (branchTransactionDOs != null && branchTransactionDOs.size() > 0) {
+            // 转换Branch事务, 填充到全局事务中
             for (BranchTransactionDO branchTransactionDO : branchTransactionDOs) {
                 globalSession.add(convertBranchSession(branchTransactionDO));
             }

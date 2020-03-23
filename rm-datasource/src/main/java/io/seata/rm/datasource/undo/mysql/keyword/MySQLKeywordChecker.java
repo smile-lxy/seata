@@ -1103,11 +1103,14 @@ public class MySQLKeywordChecker implements KeywordChecker {
     @Override
     public boolean check(String fieldOrTableName) {
         if (keywordSet.contains(fieldOrTableName)) {
+            // 包含, 返回结果
             return true;
         }
         if (null != fieldOrTableName) {
+            // 不为空, 字段转换为大写
             fieldOrTableName = fieldOrTableName.toUpperCase();
         }
+        // 重新检测是否包含
         return keywordSet.contains(fieldOrTableName);
 
     }

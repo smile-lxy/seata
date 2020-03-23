@@ -57,6 +57,7 @@ public interface ConfigurationChangeListener {
      * @param event the event
      */
     default void onProcessEvent(ConfigurationChangeEvent event) {
+        // 提交至线程池, 异步执行
         getExecutorService().submit(() -> {
             beforeEvent();
             onChangeEvent(event);

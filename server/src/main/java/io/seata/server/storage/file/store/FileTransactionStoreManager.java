@@ -270,8 +270,8 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
     }
 
     private boolean findTimeoutAndSave() throws IOException {
-        List<GlobalSession> globalSessionsOverMaxTimeout = sessionManager.findGlobalSessions(
-            new SessionCondition(MAX_TRX_TIMEOUT_MILLS));
+        List<GlobalSession> globalSessionsOverMaxTimeout = sessionManager
+            .findGlobalSessions(new SessionCondition(MAX_TRX_TIMEOUT_MILLS));
         if (CollectionUtils.isEmpty(globalSessionsOverMaxTimeout)) {
             return true;
         }
@@ -328,7 +328,7 @@ public class FileTransactionStoreManager extends AbstractTransactionStoreManager
             }
         }
         try {
-            currFileChannel.force(true);
+            currFileChannel.force(true); // 强制将数据写入磁盘
         } catch (IOException e) {
             LOGGER.error("fileChannel force error{}", e.getMessage(), e);
         }

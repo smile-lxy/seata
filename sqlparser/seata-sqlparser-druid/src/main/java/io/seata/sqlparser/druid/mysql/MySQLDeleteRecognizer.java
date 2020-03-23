@@ -35,6 +35,11 @@ import java.util.List;
  */
 public class MySQLDeleteRecognizer extends BaseMySQLRecognizer implements SQLDeleteRecognizer {
 
+    /**
+     * SQL声明(抽象语法树)
+     * https://github.com/alibaba/druid/wiki/Druid_SQL_AST#24-sqlselect--sqlselectquery
+     * AbstractSyntaxTree ast
+     */
     private final MySqlDeleteStatement ast;
 
     /**

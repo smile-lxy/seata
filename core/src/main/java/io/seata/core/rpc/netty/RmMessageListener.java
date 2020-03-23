@@ -90,11 +90,13 @@ public class RmMessageListener implements ClientMessageListener {
     private void handleBranchRollback(RpcMessage request, String serverAddress,
                                       BranchRollbackRequest branchRollbackRequest) {
         BranchRollbackResponse resultMessage = null;
+        // 相应的处理器作出处理('AbstractRMHandler'的子类)
         resultMessage = (BranchRollbackResponse)handler.onRequest(branchRollbackRequest, null);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("branch rollback result:" + resultMessage);
         }
         try {
+            // 发送处理结果
             sender.sendResponse(request, serverAddress, resultMessage);
         } catch (Throwable throwable) {
             LOGGER.error("send response error: {}", throwable.getMessage(), throwable);
@@ -105,7 +107,9 @@ public class RmMessageListener implements ClientMessageListener {
 
         BranchCommitResponse resultMessage = null;
         try {
+            // 相应的处理器作出处理('AbstractRMHandler'的子类)
             resultMessage = (BranchCommitResponse)handler.onRequest(branchCommitRequest, null);
+            // 发送处理结果
             getSender().sendResponse(request, serverAddress, resultMessage);
         } catch (Exception e) {
             LOGGER.error(FrameworkErrorCode.NetOnMessage.getErrCode(), e.getMessage(), e);
@@ -114,12 +118,14 @@ public class RmMessageListener implements ClientMessageListener {
             }
             resultMessage.setResultCode(ResultCode.Failed);
             resultMessage.setMsg(e.getMessage());
+            // 发送处理结果
             getSender().sendResponse(request, serverAddress, resultMessage);
         }
     }
 
     private void handleUndoLogDelete(UndoLogDeleteRequest undoLogDeleteRequest) {
         try {
+            // 相应的处理器作出处理('AbstractRMHandler'的子类)
             handler.onRequest(undoLogDeleteRequest, null);
         } catch (Exception e) {
             LOGGER.error("Failed to delete undo log by undoLogDeleteRequest on" + undoLogDeleteRequest.getResourceId());

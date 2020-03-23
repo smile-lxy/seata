@@ -57,6 +57,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public Long branchRegister(BranchType branchType, String resourceId, String clientId, String xid, String applicationData, String lockKeys) throws TransactionException {
         try {
+            // 封装请求参数
             BranchRegisterRequest request = new BranchRegisterRequest();
             request.setXid(xid);
             request.setLockKey(lockKeys);
@@ -64,9 +65,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
             request.setBranchType(branchType);
             request.setApplicationData(applicationData);
 
+            // 发送消息
             BranchRegisterResponse response = (BranchRegisterResponse) RmRpcClient.getInstance().sendMsgWithResponse(request);
             if (response.getResultCode() == ResultCode.Failed) {
-                throw new RmTransactionException(response.getTransactionExceptionCode(), String.format("Response[ %s ]", response.getMsg()));
+                throw new RmTransactionException(response.getTransactionExceptionCode(),
+                    String.format("Response[ %s ]", response.getMsg()));
             }
             return response.getBranchId();
         } catch (TimeoutException toe) {
@@ -77,6 +80,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     /**
+     * Branch执行结果状态汇报
      * report branch status
      * @param branchType      the branch type
      * @param xid             the xid
@@ -88,15 +92,18 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void branchReport(BranchType branchType, String xid, long branchId, BranchStatus status, String applicationData) throws TransactionException {
         try {
+            // 封装请求参数
             BranchReportRequest request = new BranchReportRequest();
             request.setXid(xid);
             request.setBranchId(branchId);
             request.setStatus(status);
             request.setApplicationData(applicationData);
 
+            // RPC发送请求
             BranchReportResponse response = (BranchReportResponse) RmRpcClient.getInstance().sendMsgWithResponse(request);
             if (response.getResultCode() == ResultCode.Failed) {
-                throw new RmTransactionException(response.getTransactionExceptionCode(), String.format("Response[ %s ]", response.getMsg()));
+                throw new RmTransactionException(response.getTransactionExceptionCode(),
+                    String.format("Response[ %s ]", response.getMsg()));
             }
         } catch (TimeoutException toe) {
             throw new RmTransactionException(TransactionExceptionCode.IO, "RPC Timeout", toe);
@@ -117,6 +124,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public void registerResource(Resource resource) {
-        RmRpcClient.getInstance().registerResource(resource.getResourceGroupId(), resource.getResourceId());
+        // 注册资源信息
+        RmRpcClient.getInstance()
+            .registerResource(resource.getResourceGroupId(), resource.getResourceId());
     }
 }

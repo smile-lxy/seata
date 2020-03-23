@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * 服务端默认消息监听器
  * The type Default server message listener.
  *
  * @author slievrly
@@ -68,12 +69,15 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
 
     @Override
     public void onTrxMessage(RpcMessage request, ChannelHandlerContext ctx) {
+        // 请求内容
         Object message = request.getBody();
+        // RPC上下文
         RpcContext rpcContext = ChannelManager.getContextFromIdentified(ctx.channel());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("server received:{},clientIp:{},vgroup:{}", message,
                 NetUtil.toIpAddress(ctx.channel().remoteAddress()), rpcContext.getTransactionServiceGroup());
         } else {
+            // 放入到消息队列中, 定时任务批量输出日志
             try {
                 logQueue.put(message + ",clientIp:" + NetUtil.toIpAddress(ctx.channel().remoteAddress()) + ",vgroup:"
                     + rpcContext.getTransactionServiceGroup());
@@ -85,20 +89,28 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
             return;
         }
         if (message instanceof MergedWarpMessage) {
+            // 合并的消息体
             AbstractResultMessage[] results = new AbstractResultMessage[((MergedWarpMessage) message).msgs.size()];
             for (int i = 0; i < results.length; i++) {
                 final AbstractMessage subMessage = ((MergedWarpMessage) message).msgs.get(i);
+                // 处理请求
                 results[i] = transactionMessageHandler.onRequest(subMessage, rpcContext);
             }
+            // 封装结果
             MergeResultMessage resultMessage = new MergeResultMessage();
             resultMessage.setMsgs(results);
+            // 获取相应处理器, 发送处理结果
             getServerMessageSender().sendResponse(request, ctx.channel(), resultMessage);
         } else if (message instanceof AbstractResultMessage) {
+            // 懵逼消息... 默认处理: 抛异常(ShouldNeverHappenException)
             transactionMessageHandler.onResponse((AbstractResultMessage) message, rpcContext);
         } else {
-            // the single send request message
+            // 单条的消息体
+            // the single send request message 单条Request
             final AbstractMessage msg = (AbstractMessage) message;
+            // 处理请求
             AbstractResultMessage result = transactionMessageHandler.onRequest(msg, rpcContext);
+            // 获取相应处理器, 发送处理结果
             getServerMessageSender().sendResponse(request, ctx.channel(), result);
         }
     }
@@ -110,6 +122,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
         boolean isSuccess = false;
         try {
             if (null == checkAuthHandler || checkAuthHandler.regResourceManagerCheckAuth(message)) {
+                // 注册Channel
                 ChannelManager.registerRMChannel(message, ctx.channel());
                 Version.putChannelVersion(ctx.channel(), message.getVersion());
                 isSuccess = true;
@@ -122,6 +135,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
             isSuccess = false;
             LOGGER.error(exx.getMessage());
         }
+        // 反馈注册成功
         getServerMessageSender().sendResponse(request, ctx.channel(), new RegisterRMResponse(isSuccess));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("RM register success,message:{},channel:{}", message, ctx.channel());
@@ -136,6 +150,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
         boolean isSuccess = false;
         try {
             if (null == checkAuthHandler || checkAuthHandler.regTransactionManagerCheckAuth(message)) {
+                // 注册Channel
                 ChannelManager.registerTMChannel(message, ctx.channel());
                 Version.putChannelVersion(ctx.channel(), message.getVersion());
                 isSuccess = true;
@@ -148,6 +163,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
             isSuccess = false;
             LOGGER.error(exx.getMessage());
         }
+        // 反馈注册成功
         getServerMessageSender().sendResponse(request, ctx.channel(), new RegisterTMResponse(isSuccess));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("TM register success,message:{},channel:{}", message, ctx.channel());
@@ -170,9 +186,11 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
      * Init.
      */
     public void init() {
+        // 线程池
         ExecutorService mergeSendExecutorService = new ThreadPoolExecutor(MAX_LOG_SEND_THREAD, MAX_LOG_SEND_THREAD,
             KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
             new NamedThreadFactory(THREAD_PREFIX, MAX_LOG_SEND_THREAD, true));
+        // 提交批量日志输出任务
         mergeSendExecutorService.submit(new BatchLogRunnable());
     }
 
@@ -198,6 +216,7 @@ public class DefaultServerMessageListenerImpl implements ServerMessageListener {
     }
 
     /**
+     * 批量输出日志
      * The type Batch log runnable.
      */
     static class BatchLogRunnable implements Runnable {

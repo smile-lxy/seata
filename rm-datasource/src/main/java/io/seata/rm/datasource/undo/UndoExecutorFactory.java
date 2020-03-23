@@ -33,7 +33,9 @@ public class UndoExecutorFactory {
      */
     public static AbstractUndoExecutor getUndoExecutor(String dbType, SQLUndoLog sqlUndoLog) {
         AbstractUndoExecutor result = null;
+        // 获取对应数据库支持者
         UndoExecutorHolder holder = UndoExecutorHolderFactory.getUndoExecutorHolder(dbType.toLowerCase());
+        // 数据库处理器
         switch (sqlUndoLog.getSqlType()) {
             case INSERT:
                 result = holder.getInsertExecutor(sqlUndoLog);

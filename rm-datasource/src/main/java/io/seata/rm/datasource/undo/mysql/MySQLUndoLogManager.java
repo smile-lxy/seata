@@ -40,6 +40,9 @@ public class MySQLUndoLogManager extends AbstractUndoLogManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(MySQLUndoLogManager.class);
 
     /**
+     * insert into undo_log (branch_id, xid, context, rollback_info, log_status, log_created, log_modified)
+     * values (?, ?, ?, ?, ?, now(), now())
+     *
      * branch_id, xid, context, rollback_info, log_status, log_created, log_modified
      */
     private static final String INSERT_UNDO_LOG_SQL = "INSERT INTO " + UNDO_LOG_TABLE_NAME +
@@ -49,14 +52,20 @@ public class MySQLUndoLogManager extends AbstractUndoLogManager {
             + ClientTableColumnsName.UNDO_LOG_LOG_MODIFIED + ")" +
             " VALUES (?, ?, ?, ?, ?, now(), now())";
 
+    /**
+     * delete from undo_log log_created <= ? limit ?
+     */
     private static final String DELETE_UNDO_LOG_BY_CREATE_SQL = "DELETE FROM " + UNDO_LOG_TABLE_NAME +
             " WHERE log_created <= ? LIMIT ?";
 
     @Override
     public int deleteUndoLogByLogCreated(Date logCreated, int limitRows, Connection conn) throws SQLException {
+        // 预编译
         try (PreparedStatement deletePST = conn.prepareStatement(DELETE_UNDO_LOG_BY_CREATE_SQL)) {
+            // 填充SQL值
             deletePST.setDate(1, new java.sql.Date(logCreated.getTime()));
             deletePST.setInt(2, limitRows);
+            // 执行
             int deleteRows = deletePST.executeUpdate();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("batch delete undo log size {}", deleteRows);
@@ -72,7 +81,7 @@ public class MySQLUndoLogManager extends AbstractUndoLogManager {
 
     @Override
     protected void insertUndoLogWithNormal(String xid, long branchId, String rollbackCtx,
-                                           byte[] undoLogContent, Connection conn) throws SQLException {
+        byte[] undoLogContent, Connection conn) throws SQLException {
         insertUndoLog(xid, branchId, rollbackCtx, undoLogContent, State.Normal, conn);
     }
 
@@ -84,19 +93,26 @@ public class MySQLUndoLogManager extends AbstractUndoLogManager {
     }
 
     @Override
-    protected void insertUndoLogWithGlobalFinished(String xid, long branchId, UndoLogParser parser, Connection conn) throws SQLException {
+    protected void insertUndoLogWithGlobalFinished(String xid, long branchId,
+        UndoLogParser parser, Connection conn) throws SQLException {
         insertUndoLog(xid, branchId, buildContext(parser.getName()),
-                parser.getDefaultContent(), State.GlobalFinished, conn);
+            parser.getDefaultContent(), State.GlobalFinished, conn);
     }
 
+    /**
+     * 新增Undo log
+     */
     private void insertUndoLog(String xid, long branchId, String rollbackCtx,
-                               byte[] undoLogContent, State state, Connection conn) throws SQLException {
+        byte[] undoLogContent, State state, Connection conn) throws SQLException {
+        // 预编译
         try (PreparedStatement pst = conn.prepareStatement(INSERT_UNDO_LOG_SQL)) {
+            // 填充SQL值
             pst.setLong(1, branchId);
             pst.setString(2, xid);
             pst.setString(3, rollbackCtx);
             pst.setBlob(4, BlobUtils.bytes2Blob(undoLogContent));
             pst.setInt(5, state.getValue());
+            // 执行
             pst.executeUpdate();
         } catch (Exception e) {
             if (!(e instanceof SQLException)) {

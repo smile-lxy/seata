@@ -55,24 +55,32 @@ public class DeleteExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     @Override
     protected TableRecords beforeImage() throws SQLException {
         SQLDeleteRecognizer visitor = (SQLDeleteRecognizer) sqlRecognizer;
+        // 表元信息
         TableMeta tmeta = getTableMeta(visitor.getTableName());
         ArrayList<List<Object>> paramAppenderList = new ArrayList<>();
+        // 部署执行前镜像SQL
         String selectSQL = buildBeforeImageSQL(visitor, tmeta, paramAppenderList);
         return buildTableRecords(tmeta, selectSQL, paramAppenderList);
     }
 
     private String buildBeforeImageSQL(SQLDeleteRecognizer visitor, TableMeta tableMeta, ArrayList<List<Object>> paramAppenderList) {
+        // 关键字处理器
         KeywordChecker keywordChecker = KeywordCheckerFactory.getKeywordChecker(getDbType());
+        // Where条件
         String whereCondition = buildWhereCondition(visitor, paramAppenderList);
+        // from ${tableName}
         StringBuilder suffix = new StringBuilder(" FROM ").append(getFromTableInSQL());
+        // where ${whereCondition}
         if (StringUtils.isNotBlank(whereCondition)) {
             suffix.append(" WHERE ").append(whereCondition);
         }
+        //  where ${whereCondition} for update
         suffix.append(" FOR UPDATE");
         StringJoiner selectSQLAppender = new StringJoiner(", ", "SELECT ", suffix.toString());
         for (String column : tableMeta.getAllColumns().keySet()) {
             selectSQLAppender.add(getColumnNameInSQL(keywordChecker.checkAndReplace(column)));
         }
+        // select ${columns} from ${tableName} where ${whereCondition} for update
         return selectSQLAppender.toString();
     }
 

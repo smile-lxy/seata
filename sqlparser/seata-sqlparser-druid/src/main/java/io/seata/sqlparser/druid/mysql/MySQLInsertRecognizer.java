@@ -43,6 +43,11 @@ import java.util.List;
  */
 public class MySQLInsertRecognizer extends BaseMySQLRecognizer implements SQLInsertRecognizer {
 
+    /**
+     * SQL声明(抽象语法树)
+     * https://github.com/alibaba/druid/wiki/Druid_SQL_AST#24-sqlselect--sqlselectquery
+     * AbstractSyntaxTree ast
+     */
     private final MySqlInsertStatement ast;
 
     /**
@@ -81,6 +86,10 @@ public class MySQLInsertRecognizer extends BaseMySQLRecognizer implements SQLIns
         return sb.toString();
     }
 
+    /**
+     * insert into undo_log (id, name, value) values(?, ?, ?)
+     * @return [id, name, value]
+     */
     @Override
     public List<String> getInsertColumns() {
         List<SQLExpr> columnSQLExprs = ast.getColumns();
@@ -99,6 +108,10 @@ public class MySQLInsertRecognizer extends BaseMySQLRecognizer implements SQLIns
         return list;
     }
 
+    /**
+     * insert into undo_log (id, name, value) values(? , ? ,?)
+     * @return [[?, ?, ?]]
+     */
     @Override
     public List<List<Object>> getInsertRows() {
         List<SQLInsertStatement.ValuesClause> valuesClauses = ast.getValuesList();

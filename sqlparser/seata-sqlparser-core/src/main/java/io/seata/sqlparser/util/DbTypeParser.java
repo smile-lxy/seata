@@ -16,6 +16,7 @@
 package io.seata.sqlparser.util;
 
 /**
+ * 数据源类型解析器
  * @author ggndnn
  */
 public interface DbTypeParser {

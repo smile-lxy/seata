@@ -24,6 +24,7 @@ import io.seata.rm.datasource.exec.ExecuteTemplate;
 import io.seata.sqlparser.ParametersHolder;
 
 /**
+ * 预编译代理
  * The type Prepared statement proxy.
  *
  * @author sharajava

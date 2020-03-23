@@ -71,17 +71,20 @@ public class LogStoreDataBaseDAO implements LogStore {
     protected DataSource logStoreDataSource = null;
 
     /**
+     * global_table
      * The Global table.
      */
     protected String globalTable;
 
     /**
+     * branch_table
      * The Brach table.
      */
     protected String brachTable;
 
     private String dbType;
 
+    // 事务名称列长度阈值(transaction_name)
     private int transactionNameColumnSize = TRANSACTION_NAME_DEFAULT_SIZE;
 
     /**
@@ -108,17 +111,23 @@ public class LogStoreDataBaseDAO implements LogStore {
 
     @Override
     public GlobalTransactionDO queryGlobalTransactionDO(String xid) {
+        // SQL语句
         String sql = LogStoreSqls.getQueryGlobalTransactionSQL(globalTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, xid);
+            // 执行
             rs = ps.executeQuery();
             if (rs.next()) {
+                // 封装输出
                 return convertGlobalTransactionDO(rs);
             } else {
                 return null;
@@ -126,23 +135,30 @@ public class LogStoreDataBaseDAO implements LogStore {
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
+            // 清理现场
             IOUtil.close(rs, ps, conn);
         }
     }
 
     @Override
     public GlobalTransactionDO queryGlobalTransactionDO(long transactionId) {
+        // SQL 语句
         String sql = LogStoreSqls.getQueryGlobalTransactionSQLByTransactionId(globalTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setLong(1, transactionId);
+            // 执行
             rs = ps.executeQuery();
             if (rs.next()) {
+                // 封装输出
                 return convertGlobalTransactionDO(rs);
             } else {
                 return null;
@@ -150,6 +166,7 @@ public class LogStoreDataBaseDAO implements LogStore {
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
+            // 清理现场
             IOUtil.close(rs, ps, conn);
         }
     }
@@ -162,6 +179,7 @@ public class LogStoreDataBaseDAO implements LogStore {
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
 
             StringBuilder sb = new StringBuilder();
@@ -172,14 +190,19 @@ public class LogStoreDataBaseDAO implements LogStore {
                 }
             }
 
+            // SQL语句
             String sql = LogStoreSqls.getQueryGlobalTransactionSQLByStatus(globalTable, dbType, sb.toString());
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             for (int i = 0; i < statuses.length; i++) {
                 int status = statuses[i];
                 ps.setInt(i + 1, status);
             }
             ps.setInt(statuses.length + 1, limit);
+            // 执行
             rs = ps.executeQuery();
+            // 封装输出
             while (rs.next()) {
                 ret.add(convertGlobalTransactionDO(rs));
             }
@@ -187,72 +210,93 @@ public class LogStoreDataBaseDAO implements LogStore {
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
+            // 清理现场
             IOUtil.close(rs, ps, conn);
         }
     }
 
     @Override
     public boolean insertGlobalTransactionDO(GlobalTransactionDO globalTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getInsertGlobalTransactionSQL(globalTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, globalTransactionDO.getXid());
             ps.setLong(2, globalTransactionDO.getTransactionId());
             ps.setInt(3, globalTransactionDO.getStatus());
             ps.setString(4, globalTransactionDO.getApplicationId());
             ps.setString(5, globalTransactionDO.getTransactionServiceGroup());
             String transactionName = globalTransactionDO.getTransactionName();
-            transactionName = transactionName.length() > transactionNameColumnSize ? transactionName.substring(0,
-                transactionNameColumnSize) : transactionName;
+            // 事务名称处理(防止超出SQL字段设置长度)
+            transactionName = transactionName.length() > transactionNameColumnSize
+                ? transactionName.substring(0, transactionNameColumnSize)
+                : transactionName;
             ps.setString(6, transactionName);
             ps.setInt(7, globalTransactionDO.getTimeout());
             ps.setLong(8, globalTransactionDO.getBeginTime());
             ps.setString(9, globalTransactionDO.getApplicationData());
+            // 执行
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
     }
 
     @Override
     public boolean updateGlobalTransactionDO(GlobalTransactionDO globalTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getUpdateGlobalTransactionStatusSQL(globalTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setInt(1, globalTransactionDO.getStatus());
             ps.setString(2, globalTransactionDO.getXid());
+            // 执行
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
     }
 
     @Override
     public boolean deleteGlobalTransactionDO(GlobalTransactionDO globalTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getDeleteGlobalTransactionSQL(globalTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, globalTransactionDO.getXid());
+            // 执行
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
         return true;
@@ -261,18 +305,22 @@ public class LogStoreDataBaseDAO implements LogStore {
     @Override
     public List<BranchTransactionDO> queryBranchTransactionDO(String xid) {
         List<BranchTransactionDO> rets = new ArrayList<>();
+        // SQL语句
         String sql = LogStoreSqls.getQueryBranchTransaction(brachTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
-
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, xid);
-
+            // 执行
             rs = ps.executeQuery();
+            // 封装输出
             while (rs.next()) {
                 rets.add(convertBranchTransactionDO(rs));
             }
@@ -280,6 +328,7 @@ public class LogStoreDataBaseDAO implements LogStore {
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
+            // 清理现场
             IOUtil.close(rs, ps, conn);
         }
     }
@@ -291,18 +340,24 @@ public class LogStoreDataBaseDAO implements LogStore {
         List<BranchTransactionDO> rets = new ArrayList<>(retsSize);
         StringJoiner sj = new StringJoiner(",");
         xids.stream().forEach(xid -> sj.add("?"));
+        // SQL语句
         String sql = LogStoreSqls.getQueryBranchTransaction(brachTable, dbType, sj.toString());
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             for (int i = 0; i < length; i++) {
                 ps.setString(i + 1, xids.get(i));
             }
+            // 执行
             rs = ps.executeQuery();
+            // 封装输出
             while (rs.next()) {
                 rets.add(convertBranchTransactionDO(rs));
             }
@@ -310,19 +365,24 @@ public class LogStoreDataBaseDAO implements LogStore {
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
+            // 清理现场
             IOUtil.close(rs, ps, conn);
         }
     }
 
     @Override
     public boolean insertBranchTransactionDO(BranchTransactionDO branchTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getInsertBranchTransactionSQL(brachTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, branchTransactionDO.getXid());
             ps.setLong(2, branchTransactionDO.getTransactionId());
             ps.setLong(3, branchTransactionDO.getBranchId());
@@ -332,49 +392,63 @@ public class LogStoreDataBaseDAO implements LogStore {
             ps.setInt(7, branchTransactionDO.getStatus());
             ps.setString(8, branchTransactionDO.getClientId());
             ps.setString(9, branchTransactionDO.getApplicationData());
+            // 执行
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
     }
 
     @Override
     public boolean updateBranchTransactionDO(BranchTransactionDO branchTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getUpdateBranchTransactionStatusSQL(brachTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setInt(1, branchTransactionDO.getStatus());
             ps.setString(2, branchTransactionDO.getXid());
             ps.setLong(3, branchTransactionDO.getBranchId());
+            // 执行
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
     }
 
     @Override
     public boolean deleteBranchTransactionDO(BranchTransactionDO branchTransactionDO) {
+        // SQL语句
         String sql = LogStoreSqls.getDeleteBranchTransactionByBranchIdSQL(brachTable, dbType);
         Connection conn = null;
         PreparedStatement ps = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setString(1, branchTransactionDO.getXid());
             ps.setLong(2, branchTransactionDO.getBranchId());
+            // 执行
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new StoreException(e);
         } finally {
+            // 清理现场
             IOUtil.close(ps, conn);
         }
         return true;
@@ -382,11 +456,15 @@ public class LogStoreDataBaseDAO implements LogStore {
 
     @Override
     public long getCurrentMaxSessionId(long high, long low) {
+        // 全局事务SQL语句
         String transMaxSql = LogStoreSqls.getQueryGlobalMax(globalTable, dbType);
+        // Branch事务SQL语句
         String branchMaxSql = LogStoreSqls.getQueryBranchMax(brachTable, dbType);
+        // 获取最大事务ID
         long maxTransId = getCurrentMaxSessionId(transMaxSql, high, low);
         long maxBranchId = getCurrentMaxSessionId(branchMaxSql, high, low);
-        return maxBranchId > maxTransId ? maxBranchId : maxTransId;
+        // 输出最大事务ID
+        return Math.max(maxTransId,maxBranchId);
     }
 
     private long getCurrentMaxSessionId(String sql, long high, long low) {
@@ -396,11 +474,14 @@ public class LogStoreDataBaseDAO implements LogStore {
         ResultSet rs = null;
         try {
             conn = logStoreDataSource.getConnection();
+            // 设置自动提交
             conn.setAutoCommit(true);
+            // 预编译
             ps = conn.prepareStatement(sql);
+            // 填充SQL值
             ps.setLong(1, high);
             ps.setLong(2, low);
-
+            // 执行
             rs = ps.executeQuery();
             while (rs.next()) {
                 max = rs.getLong(1);
@@ -413,6 +494,10 @@ public class LogStoreDataBaseDAO implements LogStore {
         return max;
     }
 
+    /**
+     * 数据转换
+     * @return 全局事务信息
+     */
     private GlobalTransactionDO convertGlobalTransactionDO(ResultSet rs) throws SQLException {
         GlobalTransactionDO globalTransactionDO = new GlobalTransactionDO();
         globalTransactionDO.setXid(rs.getString(ServerTableColumnsName.GLOBAL_TABLE_XID));
@@ -429,6 +514,11 @@ public class LogStoreDataBaseDAO implements LogStore {
         globalTransactionDO.setGmtModified(rs.getTimestamp(ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED));
         return globalTransactionDO;
     }
+
+    /**
+     * 数据转换
+     * @return Branch事务信息
+     */
 
     private BranchTransactionDO convertBranchTransactionDO(ResultSet rs) throws SQLException {
         BranchTransactionDO branchTransactionDO = new BranchTransactionDO();
@@ -447,6 +537,7 @@ public class LogStoreDataBaseDAO implements LogStore {
     }
 
     /**
+     * 初始化事务名称列长度阈值(transaction_name)
      * the public modifier only for test
      */
     public void initTransactionNameSize() {
@@ -459,6 +550,7 @@ public class LogStoreDataBaseDAO implements LogStore {
     }
 
     /**
+     * 查询表的列信息
      * query column info from table
      *
      * @param tableName the table name

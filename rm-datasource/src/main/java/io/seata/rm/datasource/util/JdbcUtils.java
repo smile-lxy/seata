@@ -30,6 +30,9 @@ public final class JdbcUtils {
     private JdbcUtils() {
     }
 
+    /**
+     * 获取数据库类型
+     */
     public static String getDbType(String jdbcUrl) {
         return getDbTypeParser().parseFromJdbcUrl(jdbcUrl).toLowerCase();
     }
@@ -38,7 +41,10 @@ public final class JdbcUtils {
         if (dbTypeParser == null) {
             synchronized (JdbcUtils.class) {
                 if (dbTypeParser == null) {
-                    String sqlparserType = ConfigurationFactory.getInstance().getConfig(ConfigurationKeys.SQL_PARSER_TYPE, SqlParserType.SQL_PARSER_TYPE_DRUID);
+                    // SQL解析器类型
+                    String sqlparserType = ConfigurationFactory.getInstance()
+                        .getConfig(ConfigurationKeys.SQL_PARSER_TYPE, SqlParserType.SQL_PARSER_TYPE_DRUID);
+                    // SPI机制加载
                     dbTypeParser = EnhancedServiceLoader.load(DbTypeParser.class, sqlparserType);
                 }
             }

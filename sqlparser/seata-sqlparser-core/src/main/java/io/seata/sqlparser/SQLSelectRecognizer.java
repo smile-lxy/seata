@@ -16,7 +16,8 @@
 package io.seata.sqlparser;
 
 /**
- * The interface Sql select recognizer.
+ * Select SQL语句 Where条件识别器
+ * The interface Sql select recognizer
  *
  * @author sharajava
  */

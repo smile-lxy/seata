@@ -24,6 +24,7 @@ import io.seata.config.ConfigurationFactory;
 import io.seata.core.constants.ConfigurationKeys;
 
 /**
+ * 指标注册工厂, 读取配置文件配置, 进行注册
  * Registry Factory for load configured metrics registry
  *
  * @author zhengyangyong
@@ -31,14 +32,16 @@ import io.seata.core.constants.ConfigurationKeys;
 public class RegistryFactory {
     public static Registry getInstance() {
         RegistryType registryType;
-        String registryTypeName = ConfigurationFactory.getInstance().getConfig(
-            ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_REGISTRY_TYPE, null);
+        String registryTypeName = ConfigurationFactory.getInstance() // 'metrics.registryType'
+            .getConfig(ConfigurationKeys.METRICS_PREFIX + ConfigurationKeys.METRICS_REGISTRY_TYPE, null);
         if (!StringUtils.isNullOrEmpty(registryTypeName)) {
             try {
+                // 注册类型
                 registryType = RegistryType.getType(registryTypeName);
             } catch (Exception exx) {
                 throw new NotSupportYetException("not support metrics registry type: " + registryTypeName);
             }
+            // SPI机制加载, 目前仅有 CompactRegistry
             return EnhancedServiceLoader.load(Registry.class, Objects.requireNonNull(registryType).name());
         }
         return null;

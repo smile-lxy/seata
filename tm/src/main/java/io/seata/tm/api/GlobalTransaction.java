@@ -70,6 +70,7 @@ public interface GlobalTransaction {
     void rollback() throws TransactionException;
 
     /**
+     * 挂起全局事务
      * Suspend the global transaction.
      *
      * @param unbindXid if true,suspend the global transaction.
@@ -80,6 +81,7 @@ public interface GlobalTransaction {
     SuspendedResourcesHolder suspend(boolean unbindXid) throws TransactionException;
 
     /**
+     * 恢复事务
      * Resume the global transaction.
      *
      * @param suspendedResourcesHolder the suspended resources to resume

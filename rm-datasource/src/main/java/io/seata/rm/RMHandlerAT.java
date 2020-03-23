@@ -42,26 +42,33 @@ public class RMHandlerAT extends AbstractRMHandler {
 
     @Override
     public void handle(UndoLogDeleteRequest request) {
+        // 数据源管理器
         DataSourceManager dataSourceManager = (DataSourceManager)getResourceManager();
+        // 数据源代理
         DataSourceProxy dataSourceProxy = dataSourceManager.get(request.getResourceId());
         if (dataSourceProxy == null) {
             LOGGER.warn("Failed to get dataSourceProxy for delete undolog on {}", request.getResourceId());
             return;
         }
+        // Undo log移除日期
         Date logCreatedSave = getLogCreated(request.getSaveDays());
         Connection conn = null;
         try {
+            // 数据库原始连接
             conn = dataSourceProxy.getPlainConnection();
             int deleteRows = 0;
             do {
                 try {
+                    // 获取Undo Log管理器, 移除${logCreatedSave}前日志
                     deleteRows = UndoLogManagerFactory.getUndoLogManager(dataSourceProxy.getDbType())
                             .deleteUndoLogByLogCreated(logCreatedSave, LIMIT_ROWS, conn);
                     if (deleteRows > 0 && !conn.getAutoCommit()) {
+                        // 可删除记录 > 0 && 不是自动提交事务, 提交事务
                         conn.commit();
                     }
                 } catch (SQLException exx) {
                     if (deleteRows > 0 && !conn.getAutoCommit()) {
+                        // // 可删除记录 > 0 && 不是自动提交事务, 回滚事务
                         conn.rollback();
                     }
                     throw exx;
@@ -80,6 +87,9 @@ public class RMHandlerAT extends AbstractRMHandler {
         }
     }
 
+    /**
+     * 获取Undo log移除日期
+     */
     private Date getLogCreated(int saveDays) {
         if (saveDays <= 0) {
             saveDays = UndoLogDeleteRequest.DEFAULT_SAVE_DAYS;

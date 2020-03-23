@@ -63,6 +63,7 @@ public class LocalTCCRemotingParser extends AbstractedRemotingParser {
         remotingDesc.setReference(true);
         remotingDesc.setProtocol(Protocols.IN_JVM);
         Class<?> classType = bean.getClass();
+        // 所有父类接口
         Set<Class<?>> interfaceClasses = ReflectionUtil.getInterfaces(classType);
         for (Class<?> interClass : interfaceClasses) {
             if (interClass.isAnnotationPresent(LocalTCC.class)) {

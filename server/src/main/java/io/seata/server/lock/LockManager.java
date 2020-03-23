@@ -54,6 +54,7 @@ public interface LockManager {
     boolean releaseGlobalSessionLock(GlobalSession globalSession) throws TransactionException;
 
     /**
+     * 是否已加锁
      * Is lockable boolean.
      *
      * @param xid        the xid

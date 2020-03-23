@@ -77,25 +77,26 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     /**
      * The constant COMMITTING_RETRY_PERIOD.
      */
-    protected static final long COMMITTING_RETRY_PERIOD = CONFIG.getLong(ConfigurationKeys.COMMITING_RETRY_PERIOD,
-        1000L);
+    protected static final long COMMITTING_RETRY_PERIOD = CONFIG
+        .getLong(ConfigurationKeys.COMMITING_RETRY_PERIOD, 1000L);
 
     /**
      * The constant ASYNC_COMMITTING_RETRY_PERIOD.
      */
-    protected static final long ASYNC_COMMITTING_RETRY_PERIOD = CONFIG.getLong(
-        ConfigurationKeys.ASYN_COMMITING_RETRY_PERIOD, 1000L);
+    protected static final long ASYNC_COMMITTING_RETRY_PERIOD = CONFIG
+        .getLong(ConfigurationKeys.ASYN_COMMITING_RETRY_PERIOD, 1000L);
 
     /**
      * The constant ROLLBACKING_RETRY_PERIOD.
      */
-    protected static final long ROLLBACKING_RETRY_PERIOD = CONFIG.getLong(ConfigurationKeys.ROLLBACKING_RETRY_PERIOD,
-        1000L);
+    protected static final long ROLLBACKING_RETRY_PERIOD = CONFIG
+        .getLong(ConfigurationKeys.ROLLBACKING_RETRY_PERIOD, 1000L);
 
     /**
      * The constant TIMEOUT_RETRY_PERIOD.
      */
-    protected static final long TIMEOUT_RETRY_PERIOD = CONFIG.getLong(ConfigurationKeys.TIMEOUT_RETRY_PERIOD, 1000L);
+    protected static final long TIMEOUT_RETRY_PERIOD = CONFIG
+        .getLong(ConfigurationKeys.TIMEOUT_RETRY_PERIOD, 1000L);
 
     /**
      * The Transaction undo log delete period.
@@ -116,8 +117,8 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     private static final Duration MAX_ROLLBACK_RETRY_TIMEOUT = ConfigurationFactory.getInstance().getDuration(
         ConfigurationKeys.MAX_ROLLBACK_RETRY_TIMEOUT, DurationUtil.DEFAULT_DURATION, 100);
 
-    private static final boolean ROLLBACK_RETRY_TIMEOUT_UNLOCK_ENABLE = ConfigurationFactory.getInstance().getBoolean(
-        ConfigurationKeys.ROLLBACK_RETRY_TIMEOUT_UNLOCK_ENABLE, false);
+    private static final boolean ROLLBACK_RETRY_TIMEOUT_UNLOCK_ENABLE = ConfigurationFactory.getInstance()
+        .getBoolean(ConfigurationKeys.ROLLBACK_RETRY_TIMEOUT_UNLOCK_ENABLE, false);
 
     private ScheduledThreadPoolExecutor retryRollbacking = new ScheduledThreadPoolExecutor(1,
         new NamedThreadFactory("RetryRollbacking", 1));
@@ -153,13 +154,16 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     @Override
     protected void doGlobalBegin(GlobalBeginRequest request, GlobalBeginResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 开启全局事务(返回Global事务ID)
         response.setXid(core.begin(rpcContext.getApplicationId(), rpcContext.getTransactionServiceGroup(),
-            request.getTransactionName(), request.getTimeout()));
+            request.getTransactionName(), request.getTimeout())
+        );
     }
 
     @Override
     protected void doGlobalCommit(GlobalCommitRequest request, GlobalCommitResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 提交全局事务
         response.setGlobalStatus(core.commit(request.getXid()));
     }
 
@@ -172,21 +176,25 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     @Override
     protected void doGlobalStatus(GlobalStatusRequest request, GlobalStatusResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 设置全局事务状态
         response.setGlobalStatus(core.getStatus(request.getXid()));
     }
 
     @Override
     protected void doGlobalReport(GlobalReportRequest request, GlobalReportResponse response, RpcContext rpcContext)
         throws TransactionException {
+        // 总事务汇报
         response.setGlobalStatus(core.globalReport(request.getXid(), request.getGlobalStatus()));
     }
 
     @Override
     protected void doBranchRegister(BranchRegisterRequest request, BranchRegisterResponse response,
                                     RpcContext rpcContext) throws TransactionException {
+        // Branch注册(返回Branch事务ID)
         response.setBranchId(
             core.branchRegister(request.getBranchType(), request.getResourceId(), rpcContext.getClientId(),
-                request.getXid(), request.getApplicationData(), request.getLockKey()));
+                request.getXid(), request.getApplicationData(), request.getLockKey())
+        );
     }
 
     @Override
@@ -200,15 +208,19 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     protected void doLockCheck(GlobalLockQueryRequest request, GlobalLockQueryResponse response, RpcContext rpcContext)
         throws TransactionException {
         response.setLockable(
-            core.lockQuery(request.getBranchType(), request.getResourceId(), request.getXid(), request.getLockKey()));
+            // 查询锁
+            core.lockQuery(request.getBranchType(), request.getResourceId(), request.getXid(), request.getLockKey())
+        );
     }
 
     /**
+     * 超时检测
      * Timeout check.
      *
      * @throws TransactionException the transaction exception
      */
     protected void timeoutCheck() throws TransactionException {
+        // 获取所有事务
         Collection<GlobalSession> allSessions = SessionHolder.getRootSessionManager().allSessions();
         if (CollectionUtils.isEmpty(allSessions)) {
             return;
@@ -218,23 +230,28 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         }
         for (GlobalSession globalSession : allSessions) {
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug(
-                    globalSession.getXid() + " " + globalSession.getStatus() + " " + globalSession.getBeginTime() + " "
-                        + globalSession.getTimeout());
+                LOGGER.debug(globalSession.getXid() + " " + globalSession.getStatus() + " "
+                    + globalSession.getBeginTime() + " " + globalSession.getTimeout());
             }
             boolean shouldTimeout = SessionHolder.lockAndExecute(globalSession, () -> {
                 if (globalSession.getStatus() != GlobalStatus.Begin || !globalSession.isTimeout()) {
+                    // 不处于开始状态, 未超时
                     return false;
                 }
+                // 添加生命周期更改监听器, 在关闭时, 及时调用相应事件, 已备监听器作出响应处理
                 globalSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
                 globalSession.close();
                 globalSession.changeStatus(GlobalStatus.TimeoutRollbacking);
 
-                // transaction timeout and start rollbacking event
+                /**
+                 * 通过EventBus, 通知指标处理器作出处理
+                 * @see io.seata.server.metrics.MetricsSubscriber#recordGlobalTransactionEventForMetrics(GlobalTransactionEvent)
+                 */
                 eventBus.post(
                     new GlobalTransactionEvent(globalSession.getTransactionId(), GlobalTransactionEvent.ROLE_TC,
                         globalSession.getTransactionName(), globalSession.getBeginTime(), null,
-                        globalSession.getStatus()));
+                        globalSession.getStatus())
+                );
 
                 return true;
             });
@@ -243,7 +260,9 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
             }
             LOGGER.info("Global transaction[" + globalSession.getXid() + "] is timeout and will be rolled back.");
 
+            // 添加生命周期更改监听器, 在超时检测后, 及时调用相应事件, 已备监听器作出响应处理
             globalSession.addSessionLifecycleListener(SessionHolder.getRetryRollbackingSessionManager());
+            // 添加到回滚事务集合中
             SessionHolder.getRetryRollbackingSessionManager().addGlobalSession(globalSession);
 
         }
@@ -254,9 +273,11 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     }
 
     /**
+     * 重试回滚
      * Handle retry rollbacking.
      */
     protected void handleRetryRollbacking() {
+        // 需要重试回滚的事务
         Collection<GlobalSession> rollbackingSessions = SessionHolder.getRetryRollbackingSessionManager().allSessions();
         if (CollectionUtils.isEmpty(rollbackingSessions)) {
             return;
@@ -264,22 +285,28 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         long now = System.currentTimeMillis();
         for (GlobalSession rollbackingSession : rollbackingSessions) {
             try {
+                //  回滚中 && 小于12S 防止重复回滚
                 // prevent repeated rollback
                 if (rollbackingSession.getStatus().equals(GlobalStatus.Rollbacking) && !rollbackingSession.isRollbackingDead()) {
                     continue;
                 }
                 if (isRetryTimeout(now, MAX_ROLLBACK_RETRY_TIMEOUT.toMillis(), rollbackingSession.getBeginTime())) {
+                    // 重试超时
                     if (ROLLBACK_RETRY_TIMEOUT_UNLOCK_ENABLE) {
+                        // 回滚重试时不需开启事务锁, 释放事务锁
                         rollbackingSession.clean();
                     }
                     /**
+                     * 移除全局事务记录
                      * Prevent thread safety issues
                      */
                     SessionHolder.getRetryRollbackingSessionManager().removeGlobalSession(rollbackingSession);
                     LOGGER.error("GlobalSession rollback retry timeout and removed [{}]", rollbackingSession.getXid());
                     continue;
                 }
+                // 添加生命周期更改监听器, 在重试回滚前后, 及时调用相应事件, 已备监听器作出响应处理
                 rollbackingSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+                // 执行事务回滚
                 core.doGlobalRollback(rollbackingSession, true);
             } catch (TransactionException ex) {
                 LOGGER.info("Failed to retry rollbacking [{}] {} {}", rollbackingSession.getXid(), ex.getCode(),
@@ -292,6 +319,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
      * Handle retry committing.
      */
     protected void handleRetryCommitting() {
+        // 需要重试提交的事务
         Collection<GlobalSession> committingSessions = SessionHolder.getRetryCommittingSessionManager().allSessions();
         if (CollectionUtils.isEmpty(committingSessions)) {
             return;
@@ -300,6 +328,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         for (GlobalSession committingSession : committingSessions) {
             try {
                 if (isRetryTimeout(now, MAX_COMMIT_RETRY_TIMEOUT.toMillis(), committingSession.getBeginTime())) {
+                    // 重试超时
                     /**
                      * Prevent thread safety issues
                      */
@@ -307,7 +336,9 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                     LOGGER.error("GlobalSession commit retry timeout and removed [{}]", committingSession.getXid());
                     continue;
                 }
+                // 添加生命周期更改监听器, 在重试提交前后, 及时调用相应事件, 已备监听器作出响应处理
                 committingSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+                // 执行事务提交
                 core.doGlobalCommit(committingSession, true);
             } catch (TransactionException ex) {
                 LOGGER.info("Failed to retry committing [{}] {} {}", committingSession.getXid(), ex.getCode(),
@@ -330,6 +361,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
      * Handle async committing.
      */
     protected void handleAsyncCommitting() {
+        // 需要异步提交的事务
         Collection<GlobalSession> asyncCommittingSessions = SessionHolder.getAsyncCommittingSessionManager()
             .allSessions();
         if (CollectionUtils.isEmpty(asyncCommittingSessions)) {
@@ -341,7 +373,9 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                 if (GlobalStatus.AsyncCommitting != asyncCommittingSession.getStatus()) {
                     continue;
                 }
+                // 添加生命周期更改监听器, 在异步提交前后, 及时调用相应事件, 已备监听器作出响应处理
                 asyncCommittingSession.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
+                // 执行事务提交
                 core.doGlobalCommit(asyncCommittingSession, true);
             } catch (TransactionException ex) {
                 LOGGER.error("Failed to async committing [{}] {} {}", asyncCommittingSession.getXid(), ex.getCode(),
@@ -351,6 +385,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
     }
 
     /**
+     * 清除undo日志
      * Undo log delete.
      */
     protected void undoLogDelete() {
@@ -359,14 +394,17 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
             LOGGER.info("no active rm channels to delete undo log");
             return;
         }
+        // 配置的日志保存天数
         short saveDays = CONFIG.getShort(ConfigurationKeys.TRANSACTION_UNDO_LOG_SAVE_DAYS,
             UndoLogDeleteRequest.DEFAULT_SAVE_DAYS);
         for (Map.Entry<String, Channel> channelEntry : rmChannels.entrySet()) {
             String resourceId = channelEntry.getKey();
+            // 封装参数
             UndoLogDeleteRequest deleteRequest = new UndoLogDeleteRequest();
             deleteRequest.setResourceId(resourceId);
             deleteRequest.setSaveDays(saveDays > 0 ? saveDays : UndoLogDeleteRequest.DEFAULT_SAVE_DAYS);
             try {
+                // 向各RM发送清除undo日志消息
                 messageSender.sendASyncRequest(channelEntry.getValue(), deleteRequest);
             } catch (Exception e) {
                 LOGGER.error("Failed to async delete undo log resourceId = " + resourceId);
@@ -378,45 +416,50 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
      * Init.
      */
     public void init() {
+        // 异常重试回滚任务
         retryRollbacking.scheduleAtFixedRate(() -> {
             try {
                 handleRetryRollbacking();
             } catch (Exception e) {
                 LOGGER.info("Exception retry rollbacking ... ", e);
-            }
+            } // 1000
         }, 0, ROLLBACKING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 重试提交任务
         retryCommitting.scheduleAtFixedRate(() -> {
             try {
                 handleRetryCommitting();
             } catch (Exception e) {
                 LOGGER.info("Exception retry committing ... ", e);
-            }
+            } // 1000
         }, 0, COMMITTING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 异步提交任务
         asyncCommitting.scheduleAtFixedRate(() -> {
             try {
                 handleAsyncCommitting();
             } catch (Exception e) {
                 LOGGER.info("Exception async committing ... ", e);
-            }
+            } // 1000
         }, 0, ASYNC_COMMITTING_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // 超时检测任务
         timeoutCheck.scheduleAtFixedRate(() -> {
             try {
                 timeoutCheck();
             } catch (Exception e) {
                 LOGGER.info("Exception timeout checking ... ", e);
-            }
+            } // 1000
         }, 0, TIMEOUT_RETRY_PERIOD, TimeUnit.MILLISECONDS);
 
+        // undoLog清除任务
         undoLogDelete.scheduleAtFixedRate(() -> {
             try {
                 undoLogDelete();
             } catch (Exception e) {
                 LOGGER.info("Exception undoLog deleting ... ", e);
-            }
-        }, UNDO_LOG_DELAY_DELETE_PERIOD, UNDO_LOG_DELETE_PERIOD, TimeUnit.MILLISECONDS);
+            } // 3min,                    24hour
+        }, UNDO_LOG_DELAY_DELETE_PERIOD, UNDO_LOG_DELETE_PERIOD, TimeUnit.HOURS);
     }
 
     @Override
@@ -424,9 +467,11 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         if (!(request instanceof AbstractTransactionRequestToTC)) {
             throw new IllegalArgumentException();
         }
+        // 强转为请求TC的Request
         AbstractTransactionRequestToTC transactionRequest = (AbstractTransactionRequestToTC) request;
         transactionRequest.setTCInboundHandler(this);
 
+        // 委托模式(到具体实现执行)
         return transactionRequest.handle(context);
     }
 
@@ -440,7 +485,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
 
     @Override
     public void destroy() {
-        // 1. first shutdown timed task
+        // 1. first shutdown timed task 关闭定时任务线程池
         retryRollbacking.shutdown();
         retryCommitting.shutdown();
         asyncCommitting.shutdown();
@@ -453,11 +498,11 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         } catch (InterruptedException ignore) {
 
         }
-        // 2. second close netty flow
+        // 2. second close netty flow 关闭服务RPC
         if (messageSender instanceof RpcServer) {
             ((RpcServer) messageSender).destroy();
         }
-        // 3. last destroy SessionHolder
+        // 3. last destroy SessionHolder 关闭事务管理器
         SessionHolder.destroy();
     }
 }

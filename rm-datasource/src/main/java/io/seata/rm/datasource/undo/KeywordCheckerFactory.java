@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import io.seata.common.loader.EnhancedServiceLoader;
 
 /**
+ * 关键字检测工厂
  * The type Keyword checker factory.
  *
  * @author Wu
@@ -30,6 +31,7 @@ public class KeywordCheckerFactory {
     private static final Map<String, KeywordChecker> KEYWORD_CHECKER_MAP = new ConcurrentHashMap<>();
 
     /**
+     * 获取对应关键字检测处理器
      * get keyword checker
      *
      * @param dbType the db type
@@ -39,6 +41,7 @@ public class KeywordCheckerFactory {
         if (KEYWORD_CHECKER_MAP.get(dbType) != null) {
             return KEYWORD_CHECKER_MAP.get(dbType);
         }
+        // SPI机制加载
         KeywordChecker tableMetaCache = EnhancedServiceLoader.load(KeywordChecker.class, dbType);
         KEYWORD_CHECKER_MAP.putIfAbsent(dbType, tableMetaCache);
         return tableMetaCache;

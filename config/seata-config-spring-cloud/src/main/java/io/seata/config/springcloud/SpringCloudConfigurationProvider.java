@@ -23,6 +23,7 @@ import io.seata.config.ConfigurationProvider;
 public class SpringCloudConfigurationProvider implements ConfigurationProvider {
     @Override
     public Configuration provide() {
+        // 配置实例
         return SpringCloudConfiguration.getInstance();
     }
 }

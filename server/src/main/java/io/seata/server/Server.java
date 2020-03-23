@@ -57,27 +57,42 @@ public class Server {
      * @throws IOException the io exception
      */
     public static void main(String[] args) throws IOException {
+        // 参数解析器, 解析启动脚本时携带的参数
         //initialize the parameter parser
         //Note that the parameter parser should always be the first line to execute.
         //Because, here we need to parse the parameters needed for startup.
         ParameterParser parameterParser = new ParameterParser(args);
 
+        // 初始化指标管理器
         //initialize the metrics
         MetricsManager.get().init();
 
+        // 配置系统属性'store.mode'
         System.setProperty(ConfigurationKeys.STORE_MODE, parameterParser.getStoreMode());
 
+        // 实例化服务端RPC
         RpcServer rpcServer = new RpcServer(WORKING_THREADS);
-        //server port
+
+        //server port 重新更正监听端口
         rpcServer.setListenPort(parameterParser.getPort());
+
+        // 重置UUID因子
         UUIDGenerator.init(parameterParser.getServerNode());
+
+        // 初始化事务存储管理器
         //log store mode : file, db
         SessionHolder.init(parameterParser.getStoreMode());
 
+        // 实例化协调器
         DefaultCoordinator coordinator = new DefaultCoordinator(rpcServer);
+
+        // 协调器初始化(启动几个任务定时器)
         coordinator.init();
+
+        // 设置协调器
         rpcServer.setHandler(coordinator);
-        // register ShutdownHook
+
+        // register ShutdownHook 添加关闭时执行的钩子
         ShutdownHook.getInstance().addDisposable(coordinator);
         ShutdownHook.getInstance().addDisposable(rpcServer);
 
@@ -90,6 +105,7 @@ public class Server {
         XID.setPort(rpcServer.getListenPort());
 
         try {
+            // 服务端RPC初始化
             rpcServer.init();
         } catch (Throwable e) {
             LOGGER.error("rpcServer init error:{}", e.getMessage(), e);

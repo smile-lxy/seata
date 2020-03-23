@@ -66,11 +66,13 @@ public class NettyBaseConfig {
     protected static final boolean SHARE_BOSS_WORKER = CONFIG.getBoolean(ConfigurationKeys.SHARE_BOSS_WORKER);
 
     /**
+     * 工作线程数
      * The constant WORKER_THREAD_SIZE.
      */
     protected static int WORKER_THREAD_SIZE;
 
     /**
+     * 通信I/O模型, 默认: NIO
      * The constant TRANSPORT_SERVER_TYPE.
      */
     protected static final TransportServerType TRANSPORT_SERVER_TYPE;
@@ -85,6 +87,7 @@ public class NettyBaseConfig {
     protected static final Class<? extends Channel> CLIENT_CHANNEL_CLAZZ;
 
     /**
+     * 通信协议, 默认; TCP
      * The constant TRANSPORT_PROTOCOL_TYPE.
      */
     protected static final TransportProtocolType TRANSPORT_PROTOCOL_TYPE;
@@ -110,16 +113,23 @@ public class NettyBaseConfig {
     protected static final int MAX_ALL_IDLE_SECONDS = 0;
 
     static {
-        TRANSPORT_PROTOCOL_TYPE = TransportProtocolType.valueOf(CONFIG.getConfig(ConfigurationKeys.TRANSPORT_TYPE, TransportProtocolType.TCP.name()));
+        TRANSPORT_PROTOCOL_TYPE = TransportProtocolType.valueOf(CONFIG.getConfig(ConfigurationKeys.TRANSPORT_TYPE,
+            TransportProtocolType.TCP.name())
+        );
+        // 工作线程数
         String workerThreadSize = CONFIG.getConfig(ConfigurationKeys.WORKER_THREAD_SIZE);
         if (StringUtils.isNotBlank(workerThreadSize) && StringUtils.isNumeric(workerThreadSize)) {
             WORKER_THREAD_SIZE = Integer.parseInt(workerThreadSize);
         } else if (null != WorkThreadMode.getModeByName(workerThreadSize)) {
+            // 根据策略设置线程数
             WORKER_THREAD_SIZE = WorkThreadMode.getModeByName(workerThreadSize).getValue();
         } else {
+            // 默认线程数(CPU * 2)
             WORKER_THREAD_SIZE = WorkThreadMode.Default.getValue();
         }
-        TRANSPORT_SERVER_TYPE = TransportServerType.valueOf(CONFIG.getConfig(ConfigurationKeys.TRANSPORT_SERVER, TransportServerType.NIO.name()));
+        TRANSPORT_SERVER_TYPE = TransportServerType.valueOf(CONFIG.getConfig(ConfigurationKeys.TRANSPORT_SERVER,
+            TransportServerType.NIO.name()));
+        // 根据不同通信I/O模型, 选择不同的Socket通道
         switch (TRANSPORT_SERVER_TYPE) {
             case NIO:
                 if (TRANSPORT_PROTOCOL_TYPE == TransportProtocolType.TCP) {
@@ -163,12 +173,14 @@ public class NettyBaseConfig {
             default:
                 throw new IllegalArgumentException("unsupported.");
         }
+        // 从配置文件中获取'transport.heartbeat', 默认: true
         boolean enableHeartbeat = CONFIG.getBoolean(ConfigurationKeys.TRANSPORT_HEARTBEAT, DEFAULT_TRANSPORT_HEARTBEAT);
         if (enableHeartbeat) {
             MAX_WRITE_IDLE_SECONDS = DEFAULT_WRITE_IDLE_SECONDS;
         } else {
             MAX_WRITE_IDLE_SECONDS = 0;
         }
+        // 最长心跳包间隔时间, 默认: 15S
         MAX_READ_IDLE_SECONDS = MAX_WRITE_IDLE_SECONDS * READIDLE_BASE_WRITEIDLE;
     }
 

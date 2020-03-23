@@ -22,6 +22,7 @@ package io.seata.rm.datasource.undo;
  */
 public interface KeywordChecker {
     /**
+     * 检测是否使用关键字
      * check whether given field name and table name use keywords
      *
      * @param fieldOrTableName the field or table name
@@ -38,10 +39,11 @@ public interface KeywordChecker {
     boolean checkEscape(String fieldOrTableName);
 
     /**
+     * 检测是否使用关键字, 若使用, 则在名字前后追加'`'
      * check whether given field name and table name use keywords and,if so,will add "`" to the name.
      *
-     * @param fieldOrTableName the field or table name
-     * @return string
+     * @param fieldOrTableName the field or table name 'name'
+     * @return string '`name`'
      */
     String checkAndReplace(String fieldOrTableName);
 }

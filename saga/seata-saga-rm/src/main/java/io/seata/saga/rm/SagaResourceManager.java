@@ -85,6 +85,7 @@ public class SagaResourceManager extends AbstractResourceManager {
     public BranchStatus branchCommit(BranchType branchType, String xid, long branchId, String resourceId,
                                      String applicationData) throws TransactionException {
         try {
+            // 状态机实例
             StateMachineInstance machineInstance = StateMachineEngineHolder.getStateMachineEngine().forward(xid, null);
 
             if (ExecutionStatus.SU.equals(machineInstance.getStatus())

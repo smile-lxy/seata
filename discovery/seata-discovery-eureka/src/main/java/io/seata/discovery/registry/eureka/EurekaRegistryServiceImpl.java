@@ -94,11 +94,14 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
     @Override
     public void register(InetSocketAddress address) throws Exception {
         NetUtil.validAddress(address);
+        // 填充参数
         instanceConfig.setIpAddress(address.getAddress().getHostAddress());
         instanceConfig.setPort(address.getPort());
         instanceConfig.setApplicationName(getApplicationName());
         instanceConfig.setInstanceId(getInstanceId());
+        // 初始化Eureka Client
         getEurekaClient(true);
+        // 标识实例状态
         applicationInfoManager.setInstanceStatus(InstanceInfo.InstanceStatus.UP);
     }
 
@@ -107,21 +110,32 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
         if (eurekaClient == null) {
             return;
         }
+        // 标识实例状态
         applicationInfoManager.setInstanceStatus(InstanceInfo.InstanceStatus.DOWN);
     }
 
+    /**
+     * 添加事件监听者
+     */
     @Override
     public void subscribe(String cluster, EurekaEventListener listener) throws Exception {
         subscribeListener = true;
         getEurekaClient(false).registerEventListener(listener);
     }
 
+    /**
+     * 卸载事件监听者
+     */
     @Override
     public void unsubscribe(String cluster, EurekaEventListener listener) throws Exception {
         subscribeListener = false;
         getEurekaClient(false).unregisterEventListener(listener);
     }
 
+    /**
+     * 获取服务地址列表
+     * @param key 服务名
+     */
     @Override
     public List<InetSocketAddress> lookup(String key) throws Exception {
         String clusterName = getServiceGroup(key);
@@ -129,6 +143,7 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
             return null;
         }
         if (!subscribeListener) {
+            // 未添加事件监听者, 刷新注册中心, 添加订阅者, 监听注册列表变动
             refreshCluster();
             subscribe(null, event -> {
                 try {
@@ -150,9 +165,11 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
     }
 
     private void refreshCluster() {
+        // 注册中心应用列表
         List<Application> applications = getEurekaClient(false).getApplications().getRegisteredApplications();
 
         if (CollectionUtils.isEmpty(applications)) {
+            // 清除本地缓存
             clusterAddressMap.clear();
 
             if (LOGGER.isDebugEnabled()) {
@@ -161,6 +178,7 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
             return;
         }
 
+        // 封装, 本地缓存
         ConcurrentMap<String, Set<InetSocketAddress>> collect = new ConcurrentHashMap<>(MAP_INITIAL_CAPACITY);
 
         for (Application application : applications) {
@@ -213,6 +231,12 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
         return application;
     }
 
+    /**
+     * 获取Eureka Client
+     * @param needRegister 是否需要注册
+     * @return
+     * @throws EurekaRegistryException
+     */
     private EurekaClient getEurekaClient(boolean needRegister) throws EurekaRegistryException {
         if (null == eurekaClient) {
             synchronized (EurekaRegistryServiceImpl.class) {
@@ -221,12 +245,14 @@ public class EurekaRegistryServiceImpl implements RegistryService<EurekaEventLis
                         if (!needRegister) {
                             instanceConfig = new CustomEurekaInstanceConfig();
                         }
+                        // 获取Eureka相关配置
                         ConfigurationManager.loadProperties(getEurekaProperties(needRegister));
                         InstanceInfo instanceInfo = new EurekaConfigBasedInstanceInfoProvider(instanceConfig).get();
                         applicationInfoManager = new ApplicationInfoManager(instanceConfig, instanceInfo);
                         eurekaClient = new DiscoveryClient(applicationInfoManager, new DefaultEurekaClientConfig());
                     }
                 } catch (Exception e) {
+                    // 清理现场
                     clean();
                     throw new EurekaRegistryException("register eureka is error!", e);
                 }

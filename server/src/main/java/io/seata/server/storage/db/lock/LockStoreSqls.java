@@ -48,38 +48,47 @@ public class LockStoreSqls {
         + ServerTableColumnsName.LOCK_TABLE_GMT_MODIFIED;
 
     /**
+     * insert into lock_table (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_LOCK_SQL_MYSQL.
      */
     public static final String INSERT_LOCK_SQL_MYSQL = "insert into " + LOCK_TABLE_PLACEHOLD + "(" + ALL_COLUMNS + ")" +
         "values (?, ?, ?, ?, ?, ?, ?, now(), now())";
 
     /**
+     * insert into lock_table (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, sysdate, sysdate)
      * The constant INSERT_LOCK_SQL_ORACLE.
      */
     public static final String INSERT_LOCK_SQL_ORACLE = "insert into " + LOCK_TABLE_PLACEHOLD + "(" + ALL_COLUMNS + ")"
-        +
-        "values (?, ?, ?, ?, ?, ?, ?, sysdate, sysdate)";
+        + "values (?, ?, ?, ?, ?, ?, ?, sysdate, sysdate)";
 
     /**
+     * insert into lock_table (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_LOCK_SQL_POSTGRESQL.
      */
     public static final String INSERT_LOCK_SQL_POSTGRESQL = "insert into " + LOCK_TABLE_PLACEHOLD + "(" + ALL_COLUMNS + ")"
-        +
-        "values (?, ?, ?, ?, ?, ?, ?, now(), now())";
+        + "values (?, ?, ?, ?, ?, ?, ?, now(), now())";
 
     /**
+     * delete from lock_table where xid = ? and row_key = ?
      * The constant DELETE_LOCK_SQL.
      */
     public static final String DELETE_LOCK_SQL = "delete from " + LOCK_TABLE_PLACEHOLD
-        + " where " + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " = ? and " + ServerTableColumnsName.LOCK_TABLE_XID + " = ?";
+        + " where " + ServerTableColumnsName.LOCK_TABLE_XID + " = ? and"
+        + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " = ? ";
 
     /**
+     * delete from lock_table where xid = ? and row_key in (?, ?, ?, ...)
      * The constant BATCH_DELETE_LOCK_SQL.
      */
     public static final String BATCH_DELETE_LOCK_SQL = "delete from " + LOCK_TABLE_PLACEHOLD
-        + " where " + ServerTableColumnsName.LOCK_TABLE_XID + " = ? and " + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " in (" + IN_PARAMS_PLACEHOLD + ") ";
+        + " where " + ServerTableColumnsName.LOCK_TABLE_XID + " = ? and "
+        + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " in (" + IN_PARAMS_PLACEHOLD + ") ";
 
     /**
+     * delete from lock_table where xid = ? and branch_id = ?
      * The constant BATCH_DELETE_LOCK_BY_BRANCH_SQL.
      */
     public static final String BATCH_DELETE_LOCK_BY_BRANCH_SQL = "delete from " + LOCK_TABLE_PLACEHOLD
@@ -87,6 +96,7 @@ public class LockStoreSqls {
 
 
     /**
+     * delete from lock_table where xid = ? and branch_id in (?, ?, ?, ...)
      * The constant BATCH_DELETE_LOCK_BY_BRANCHS_SQL.
      */
     public static final String BATCH_DELETE_LOCK_BY_BRANCHS_SQL = "delete from " + LOCK_TABLE_PLACEHOLD
@@ -94,18 +104,24 @@ public class LockStoreSqls {
 
 
     /**
+     * select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
+     * from lock_table where row_key = ?
      * The constant QUERY_LOCK_SQL.
      */
     public static final String QUERY_LOCK_SQL = "select " + ALL_COLUMNS + " from " + LOCK_TABLE_PLACEHOLD
         + " where " + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " = ? ";
 
     /**
+     * select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
+     * from lock_table where row_key in (?, ?, ?, ...)
      * The constant CHECK_LOCK_SQL.
      */
     public static final String CHECK_LOCK_SQL = "select " + ALL_COLUMNS + " from " + LOCK_TABLE_PLACEHOLD
         + " where " + ServerTableColumnsName.LOCK_TABLE_ROW_KEY + " in (" + IN_PARAMS_PLACEHOLD + ")";
 
     /**
+     * insert into lock_table (xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, now(), now())
      * Get insert lock sql string.
      *
      * @param lockTable the lock table
@@ -138,6 +154,7 @@ public class LockStoreSqls {
     }
 
     /**
+     * delete from lock_table where xid = ? and row_key in (?, ?, ?, ...)
      * Get batch delete lock sql string.
      *
      * @param lockTable      the lock table
@@ -152,6 +169,7 @@ public class LockStoreSqls {
 
 
     /**
+     * delete from lock_table where xid = ? and branch_id = ?
      * Get batch delete lock sql string.
      *
      * @param lockTable      the lock table
@@ -163,6 +181,7 @@ public class LockStoreSqls {
     }
 
     /**
+     * delete from lock_table where xid = ? and branch_id in (?, ?, ?, ...)
      * Get batch delete lock sql string.
      *
      * @param lockTable      the lock table
@@ -171,8 +190,8 @@ public class LockStoreSqls {
      * @return the string
      */
     public static String getBatchDeleteLockSqlByBranchs(String lockTable, String paramPlaceHold, String dbType) {
-        return BATCH_DELETE_LOCK_BY_BRANCHS_SQL.replace(LOCK_TABLE_PLACEHOLD, lockTable).replace(IN_PARAMS_PLACEHOLD,
-            paramPlaceHold);
+        return BATCH_DELETE_LOCK_BY_BRANCHS_SQL.replace(LOCK_TABLE_PLACEHOLD, lockTable)
+            .replace(IN_PARAMS_PLACEHOLD, paramPlaceHold);
     }
 
     /**
@@ -187,6 +206,8 @@ public class LockStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, branch_id, resource_id, table_name, pk, row_key, gmt_create, gmt_modified
+     * from lock_table where row_key in (?, ?, ?, ...)
      * Get check lock sql string.
      *
      * @param lockTable      the lock table
@@ -195,7 +216,8 @@ public class LockStoreSqls {
      * @return the string
      */
     public static String getCheckLockableSql(String lockTable, String paramPlaceHold, String dbType) {
-        return CHECK_LOCK_SQL.replace(LOCK_TABLE_PLACEHOLD, lockTable).replace(IN_PARAMS_PLACEHOLD, paramPlaceHold);
+        return CHECK_LOCK_SQL.replace(LOCK_TABLE_PLACEHOLD, lockTable)
+            .replace(IN_PARAMS_PLACEHOLD, paramPlaceHold);
     }
 
 }

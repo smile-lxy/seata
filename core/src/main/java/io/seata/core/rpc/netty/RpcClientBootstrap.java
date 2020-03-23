@@ -78,7 +78,8 @@ public class RpcClientBootstrap implements RemotingClient {
         this.transactionRole = transactionRole;
         this.eventLoopGroupWorker = new NioEventLoopGroup(selectorThreadSizeThreadSize,
             new NamedThreadFactory(getThreadPrefix(this.nettyClientConfig.getClientSelectorThreadPrefix()),
-                selectorThreadSizeThreadSize));
+                selectorThreadSizeThreadSize)
+        );
         this.defaultEventExecutorGroup = eventExecutorGroup;
     }
 
@@ -110,14 +111,22 @@ public class RpcClientBootstrap implements RemotingClient {
         if (this.defaultEventExecutorGroup == null) {
             this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(nettyClientConfig.getClientWorkerThreads(),
                 new NamedThreadFactory(getThreadPrefix(nettyClientConfig.getClientWorkerThreadPrefix()),
-                    nettyClientConfig.getClientWorkerThreads()));
+                    nettyClientConfig.getClientWorkerThreads())
+            );
         }
-        this.bootstrap.group(this.eventLoopGroupWorker).channel(
-            nettyClientConfig.getClientChannelClazz()).option(
-            ChannelOption.TCP_NODELAY, true).option(ChannelOption.SO_KEEPALIVE, true).option(
-            ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis()).option(
-            ChannelOption.SO_SNDBUF, nettyClientConfig.getClientSocketSndBufSize()).option(ChannelOption.SO_RCVBUF,
-            nettyClientConfig.getClientSocketRcvBufSize());
+        this.bootstrap.group(this.eventLoopGroupWorker)
+            // Channel选择器
+            .channel(nettyClientConfig.getClientChannelClazz())
+            // 是否尽可能利用网络带宽, 尽可能发送足够大的数据包(要求高实时性(有数据就发): true, 减少网络交互: false)
+            .option(ChannelOption.TCP_NODELAY, true)
+            // 是否启动心跳保活机制
+            .option(ChannelOption.SO_KEEPALIVE, true)
+            // 连接超时时间
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis())
+            // 发送消息时系统缓存区大小
+            .option(ChannelOption.SO_SNDBUF, nettyClientConfig.getClientSocketSndBufSize())
+            // 接受消息时系统缓存区大小
+            .option(ChannelOption.SO_RCVBUF, nettyClientConfig.getClientSocketRcvBufSize());
     
         if (nettyClientConfig.enableNative()) {
             if (PlatformDependent.isOsx()) {
@@ -126,6 +135,7 @@ public class RpcClientBootstrap implements RemotingClient {
                 }
             } else {
                 bootstrap.option(EpollChannelOption.EPOLL_MODE, EpollMode.EDGE_TRIGGERED)
+                    // 开启为了可靠传输而进行的ACK
                     .option(EpollChannelOption.TCP_QUICKACK, true);
             }
         }
@@ -166,10 +176,11 @@ public class RpcClientBootstrap implements RemotingClient {
                         pipeline.addLast(
                             new IdleStateHandler(nettyClientConfig.getChannelMaxReadIdleSeconds(),
                                 nettyClientConfig.getChannelMaxWriteIdleSeconds(),
-                                nettyClientConfig.getChannelMaxAllIdleSeconds()))
-                                .addLast(new ProtocolV1Decoder())
-                                .addLast(new ProtocolV1Encoder());
+                                nettyClientConfig.getChannelMaxAllIdleSeconds())) //心跳包
+                                .addLast(new ProtocolV1Decoder()) // 数据包解码器
+                                .addLast(new ProtocolV1Encoder()); // 数据包编码器
                         if (null != channelHandlers) {
+                            // 添加额外handler链, 目前只有 'AbstractRpcRemotingClient.ClientHandler'
                             addChannelPipelineLast(ch, channelHandlers);
                         }
                     }

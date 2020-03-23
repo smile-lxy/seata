@@ -314,6 +314,7 @@ public class NettyClientConfig extends NettyBaseConfig {
     }
 
     /**
+     * 最大检查有效重试次数
      * Gets max check alive retry.
      *
      * @return the max check alive retry
@@ -323,6 +324,7 @@ public class NettyClientConfig extends NettyBaseConfig {
     }
 
     /**
+     * 检查间隔时间
      * Gets check alive internal.
      *
      * @return the check alive internal

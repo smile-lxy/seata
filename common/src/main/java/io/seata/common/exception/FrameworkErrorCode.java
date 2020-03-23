@@ -21,6 +21,7 @@ package io.seata.common.exception;
  * @author slievrly
  */
 public enum FrameworkErrorCode {
+    // 0001 ~ 0099 是配置相关异常
     /**
      * 0001 ~ 0099  Configuration related errors
      */
@@ -99,6 +100,7 @@ public enum FrameworkErrorCode {
      */
     RegisterRM("0304", "Register RM failed", "Register RM failed"),
 
+    // 0400 ~ 0499 是Saga相关异常
     /** 0400~0499 Saga related error **/
 
     /**

@@ -26,6 +26,7 @@ public interface TableMetaCache {
 
 
     /**
+     * 获取表元信息
      * Gets table meta.
      *
      * @param connection
@@ -36,6 +37,7 @@ public interface TableMetaCache {
     TableMeta getTableMeta(Connection connection, String tableName, String resourceId);
 
     /**
+     * 刷新表元信息
      * Clear the table meta cache
      *
      * @param connection

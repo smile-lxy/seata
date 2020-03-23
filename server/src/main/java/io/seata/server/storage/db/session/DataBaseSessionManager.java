@@ -54,6 +54,8 @@ public class DataBaseSessionManager extends AbstractSessionManager
     protected static final Logger LOGGER = LoggerFactory.getLogger(DataBaseSessionManager.class);
 
     /**
+     * 任务名称
+     * @see SessionHolder#init(String)
      * The Task name.
      */
     protected String taskName;
@@ -83,11 +85,13 @@ public class DataBaseSessionManager extends AbstractSessionManager
     @Override
     public void addGlobalSession(GlobalSession session) throws TransactionException {
         if (StringUtils.isBlank(taskName)) {
+            // 任务名称为空默认是'ROOT_SESSION_MANAGER', 添加全局事务记录
             boolean ret = transactionStoreManager.writeSession(LogOperation.GLOBAL_ADD, session);
             if (!ret) {
                 throw new StoreException("addGlobalSession failed.");
             }
         } else {
+            // 不为空则执行修改操作
             boolean ret = transactionStoreManager.writeSession(LogOperation.GLOBAL_UPDATE, session);
             if (!ret) {
                 throw new StoreException("addGlobalSession failed.");
@@ -116,6 +120,7 @@ public class DataBaseSessionManager extends AbstractSessionManager
      */
     @Override
     public void removeGlobalSession(GlobalSession session) throws TransactionException {
+        // 移除全局事务记录
         boolean ret = transactionStoreManager.writeSession(LogOperation.GLOBAL_REMOVE, session);
         if (!ret) {
             throw new StoreException("removeGlobalSession failed.");
@@ -136,8 +141,10 @@ public class DataBaseSessionManager extends AbstractSessionManager
     @Override
     public void updateBranchSessionStatus(BranchSession session, BranchStatus status) throws TransactionException {
         if (StringUtils.isNotBlank(taskName)) {
+            // 不是'ROOT_SESSION_MANAGER', 不允许执行
             return;
         }
+        // 记录Branch事务修改状态
         boolean ret = transactionStoreManager.writeSession(LogOperation.BRANCH_UPDATE, session);
         if (!ret) {
             throw new StoreException("updateBranchSessionStatus failed.");
@@ -167,15 +174,20 @@ public class DataBaseSessionManager extends AbstractSessionManager
 
     @Override
     public Collection<GlobalSession> allSessions() {
+        // 根据任务名称获取相应状态事务列表
         // get by taskName
         if (SessionHolder.ASYNC_COMMITTING_SESSION_MANAGER_NAME.equalsIgnoreCase(taskName)) {
+            // 异步提交
             return findGlobalSessions(new SessionCondition(GlobalStatus.AsyncCommitting));
         } else if (SessionHolder.RETRY_COMMITTING_SESSION_MANAGER_NAME.equalsIgnoreCase(taskName)) {
+            // 重试提交
             return findGlobalSessions(new SessionCondition(new GlobalStatus[] {GlobalStatus.CommitRetrying}));
         } else if (SessionHolder.RETRY_ROLLBACKING_SESSION_MANAGER_NAME.equalsIgnoreCase(taskName)) {
+            // 重试回滚
             return findGlobalSessions(new SessionCondition(new GlobalStatus[] {GlobalStatus.RollbackRetrying,
                 GlobalStatus.Rollbacking, GlobalStatus.TimeoutRollbacking, GlobalStatus.TimeoutRollbackRetrying}));
         } else {
+            // 全部
             // all data
             return findGlobalSessions(new SessionCondition(new GlobalStatus[] {
                 GlobalStatus.UnKnown, GlobalStatus.Begin,
@@ -199,7 +211,10 @@ public class DataBaseSessionManager extends AbstractSessionManager
 
     @Override
     public void reload() {
+        // 最大事务ID(transId or branchId)
         long maxSessionId = transactionStoreManager.getCurrentMaxSessionId();
+
+        // 为防止生成重复ID, CAS重新设置UUID因子
         if (maxSessionId > UUIDGenerator.getCurrentUUID()) {
             UUIDGenerator.setUUID(UUIDGenerator.getCurrentUUID(), maxSessionId);
         }

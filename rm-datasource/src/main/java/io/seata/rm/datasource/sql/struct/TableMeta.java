@@ -91,6 +91,7 @@ public class TableMeta {
     }
 
     /**
+     * 获取自增列
      * Gets auto increase column.
      *
      * @return the auto increase column
@@ -107,6 +108,7 @@ public class TableMeta {
     }
 
     /**
+     * 获取主键集合
      * Gets primary key map.
      *
      * @return the primary key map
@@ -133,6 +135,7 @@ public class TableMeta {
     }
 
     /**
+     * 获取主键列名列表
      * Gets primary key only name.
      *
      * @return the primary key only name
@@ -147,6 +150,7 @@ public class TableMeta {
     }
 
     /**
+     * 获取主键名
      * Gets pk name.
      *
      * @return the pk name
@@ -156,6 +160,7 @@ public class TableMeta {
     }
 
     /**
+     * 获取转义主键名
      * Gets add escape pk name.
      * @param dbType
      * @return
@@ -175,6 +180,7 @@ public class TableMeta {
             return false;
         }
 
+        // 主键列表
         List<String> pk = getPrimaryKeyOnlyName();
         if (pk.isEmpty()) {
             return false;
@@ -183,6 +189,7 @@ public class TableMeta {
         if (cols.containsAll(pk)) {
             return true;
         } else {
+            // 不包含, 转为大写继续判断
             return CollectionUtils.toUpperList(cols).containsAll(CollectionUtils.toUpperList(pk));
         }
     }

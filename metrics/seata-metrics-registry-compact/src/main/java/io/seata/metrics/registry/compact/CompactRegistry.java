@@ -67,8 +67,8 @@ public class CompactRegistry implements Registry {
         if (CompactRegistry.METERS.size() == 0) {
             return measurements;
         }
-        CompactRegistry.METERS.values().iterator().forEachRemaining(
-            meter -> meter.measure().forEach(measurements::add));
+        CompactRegistry.METERS.values().iterator()
+            .forEachRemaining(meter -> meter.measure().forEach(measurements::add));
         return measurements;
     }
 }

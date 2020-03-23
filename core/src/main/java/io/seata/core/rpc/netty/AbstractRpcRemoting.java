@@ -73,6 +73,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
     protected final PositiveAtomicCounter idGenerator = new PositiveAtomicCounter();
 
     /**
+     * 异步结果池中
      * The Futures.
      */
     protected final ConcurrentHashMap<Integer, MessageFuture> futures = new ConcurrentHashMap<>();
@@ -124,12 +125,15 @@ public abstract class AbstractRpcRemoting implements Disposable {
      * Init.
      */
     public void init() {
+        // 定时清除超时未响应的Future
         timerExecutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
                 for (Map.Entry<Integer, MessageFuture> entry : futures.entrySet()) {
                     if (entry.getValue().isTimeout()) {
+                        // 从响应集合中清除响应
                         futures.remove(entry.getKey());
+                        // 将响应结果内容置为null
                         entry.getValue().setResultMessage(null);
                         if (LOGGER.isDebugEnabled()) {
                             LOGGER.debug("timeout clear future: {}", entry.getValue().getRequestMessage().getBody());
@@ -140,14 +144,16 @@ public abstract class AbstractRpcRemoting implements Disposable {
                 nowMills = System.currentTimeMillis();
             }
         }, TIMEOUT_CHECK_INTERNAL, TIMEOUT_CHECK_INTERNAL, TimeUnit.MILLISECONDS);
-    }
+    } //       3,                  3,
 
     /**
      * Destroy.
      */
     @Override
     public void destroy() {
+        // 关闭定时任务线程池
         timerExecutor.shutdown();
+        // 关闭消息路由线程池
         messageExecutor.shutdown();
     }
 
@@ -200,6 +206,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
             LOGGER.warn("sendAsyncRequestWithResponse nothing, caused by null channel.");
             return null;
         }
+        // 封装消息
         final RpcMessage rpcMessage = new RpcMessage();
         rpcMessage.setId(getNextMessageId());
         rpcMessage.setMessageType(ProtocolConstants.MSGTYPE_RESQUEST_ONEWAY);
@@ -210,6 +217,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
         final MessageFuture messageFuture = new MessageFuture();
         messageFuture.setRequestMessage(rpcMessage);
         messageFuture.setTimeout(timeout);
+        // 添加到异步结果池中, 方便统一管理(超时处理) AbstractRpcRemoting#init
         futures.put(rpcMessage.getId(), messageFuture);
 
         if (address != null) {
@@ -219,6 +227,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
             @see AbstractRpcRemotingClient.MergedSendRunnable
             */
             if (NettyClientConfig.isEnableClientBatchSendRequest()) {
+                // 开启批量发送消息机制
                 ConcurrentHashMap<String, BlockingQueue<RpcMessage>> map = basketMap;
                 BlockingQueue<RpcMessage> basket = map.get(address);
                 if (basket == null) {
@@ -229,23 +238,28 @@ public abstract class AbstractRpcRemoting implements Disposable {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("offer message: {}", rpcMessage.getBody());
                 }
-                if (!isSending) {
+                if (!isSending) { // 定时修改锁状态
                     synchronized (mergeLock) {
+                        // 唤醒锁 AbstractRpcRemotingClient.MergedSendRunnable#run
                         mergeLock.notifyAll();
                     }
                 }
             } else {
-                // the single send.
+                // the single send. 发送单条消息
                 sendSingleRequest(channel, msg, rpcMessage);
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("send this msg[{}] by single send.", msg);
                 }
             }
-        } else {
+        } else { // 向Channel发送Message
             sendSingleRequest(channel, msg, rpcMessage);
         }
         if (timeout > 0) {
             try {
+                /**
+                 * 真正向MessageFuture填充数据是在
+                 * @see AbstractRpcRemoting.AbstractHandler#channelRead(ChannelHandlerContext, Object)
+                 */
                 return messageFuture.get(timeout, TimeUnit.MILLISECONDS);
             } catch (Exception exx) {
                 LOGGER.error("wait response error:{},ip:{},request:{}", exx.getMessage(), address, msg);
@@ -286,21 +300,28 @@ public abstract class AbstractRpcRemoting implements Disposable {
      */
     protected void defaultSendRequest(Channel channel, Object msg) {
         RpcMessage rpcMessage = new RpcMessage();
-        rpcMessage.setMessageType(msg instanceof HeartbeatMessage ?
-            ProtocolConstants.MSGTYPE_HEARTBEAT_REQUEST
-            : ProtocolConstants.MSGTYPE_RESQUEST);
+        rpcMessage.setMessageType(msg instanceof HeartbeatMessage
+            ? ProtocolConstants.MSGTYPE_HEARTBEAT_REQUEST
+            : ProtocolConstants.MSGTYPE_RESQUEST
+        );
         rpcMessage.setCodec(ProtocolConstants.CONFIGURED_CODEC);
         rpcMessage.setCompressor(ProtocolConstants.CONFIGURED_COMPRESSOR);
         rpcMessage.setBody(msg);
         rpcMessage.setId(getNextMessageId());
         if (msg instanceof MergeMessage) {
+            /**
+             * 如果是合并消息, 放入集合中, 由定时任务处理
+             * @see AbstractRpcRemotingClient#MergedSendRunnable#run()
+             */
             mergeMsgMap.put(rpcMessage.getId(), (MergeMessage) msg);
         }
+        // Channel可写入检测
         channelWritableCheck(channel, msg);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("write message:" + rpcMessage.getBody() + ", channel:" + channel + ",active?"
                 + channel.isActive() + ",writable?" + channel.isWritable() + ",isopen?" + channel.isOpen());
         }
+        // 向Channel写入消息并刷新
         channel.writeAndFlush(rpcMessage);
     }
 
@@ -312,6 +333,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
      * @param msg     the msg
      */
     protected void defaultSendResponse(RpcMessage request, Channel channel, Object msg) {
+        // 封装消息
         RpcMessage rpcMessage = new RpcMessage();
         rpcMessage.setMessageType(msg instanceof HeartbeatMessage ?
             ProtocolConstants.MSGTYPE_HEARTBEAT_RESPONSE :
@@ -320,10 +342,12 @@ public abstract class AbstractRpcRemoting implements Disposable {
         rpcMessage.setCompressor(request.getCompressor());
         rpcMessage.setBody(msg);
         rpcMessage.setId(request.getId());
+        // Channel可写入检测
         channelWritableCheck(channel, msg);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("send response:" + rpcMessage.getBody() + ",channel:" + channel);
         }
+        // 向Channel写入消息并刷新
         channel.writeAndFlush(rpcMessage);
     }
 
@@ -334,7 +358,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
                 try {
                     tryTimes++;
                     if (tryTimes > NettyClientConfig.getMaxNotWriteableRetry()) {
-                        destroyChannel(channel);
+                        destroyChannel(channel); // 销毁Channel
                         throw new FrameworkException("msg:" + ((msg == null) ? "null" : msg.toString()),
                             FrameworkErrorCode.ChannelIsNotWritable);
                     }
@@ -438,9 +462,11 @@ public abstract class AbstractRpcRemoting implements Disposable {
         @Override
         public void channelRead(final ChannelHandlerContext ctx, Object msg) throws Exception {
             if (msg instanceof RpcMessage) {
+                // 只处理指定协议消息
                 final RpcMessage rpcMessage = (RpcMessage) msg;
                 if (rpcMessage.getMessageType() == ProtocolConstants.MSGTYPE_RESQUEST
                     || rpcMessage.getMessageType() == ProtocolConstants.MSGTYPE_RESQUEST_ONEWAY) {
+                    // 消息类型是 请求或请求不响应 类型的
                     if (LOGGER.isDebugEnabled()) {
                         LOGGER.debug(String.format("%s msgId:%s, body:%s", this, rpcMessage.getId(), rpcMessage.getBody()));
                     }
@@ -449,7 +475,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
                             @Override
                             public void run() {
                                 try {
-                                    dispatch(rpcMessage, ctx);
+                                    dispatch(rpcMessage, ctx); // 消息路由(委托给各子类实现)
                                 } catch (Throwable th) {
                                     LOGGER.error(FrameworkErrorCode.NetDispatch.getErrCode(), th.getMessage(), th);
                                 }
@@ -459,10 +485,12 @@ public abstract class AbstractRpcRemoting implements Disposable {
                         LOGGER.error(FrameworkErrorCode.ThreadPoolFull.getErrCode(),
                             "thread pool is full, current max pool size is " + messageExecutor.getActiveCount());
                         if (allowDumpStack) {
+                            // 若允许打印堆栈, 输出堆栈信息
                             String name = ManagementFactory.getRuntimeMXBean().getName();
                             String pid = name.split("@")[0];
                             int idx = new Random().nextInt(100);
                             try {
+                                // 这个打印堆栈的地址有待....
                                 Runtime.getRuntime().exec("jstack " + pid + " >d:/" + idx + ".log");
                             } catch (IOException exx) {
                                 LOGGER.error(exx.getMessage());
@@ -471,13 +499,14 @@ public abstract class AbstractRpcRemoting implements Disposable {
                         }
                     }
                 } else {
+                    // 从异步池中移除
                     MessageFuture messageFuture = futures.remove(rpcMessage.getId());
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug(String
-                            .format("%s msgId:%s, future :%s, body:%s", this, rpcMessage.getId(), messageFuture,
-                                rpcMessage.getBody()));
+                        LOGGER.debug(String.format("%s msgId:%s, future :%s, body:%s",
+                            this, rpcMessage.getId(), messageFuture, rpcMessage.getBody()));
                     }
                     if (messageFuture != null) {
+                        // 异步池里找到了钩子, 将返回的结果填充到钩子里
                         messageFuture.setResultMessage(rpcMessage.getBody());
                     } else {
                         try {
@@ -485,7 +514,7 @@ public abstract class AbstractRpcRemoting implements Disposable {
                                 @Override
                                 public void run() {
                                     try {
-                                        dispatch(rpcMessage, ctx);
+                                        dispatch(rpcMessage, ctx); // 消息路由(委托给各子类实现)
                                     } catch (Throwable th) {
                                         LOGGER.error(FrameworkErrorCode.NetDispatch.getErrCode(), th.getMessage(), th);
                                     }
@@ -500,18 +529,30 @@ public abstract class AbstractRpcRemoting implements Disposable {
             }
         }
 
+        /**
+         * 连接出现异常时触发
+         * @param ctx
+         * @param cause
+         * @throws Exception
+         */
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             LOGGER.error(FrameworkErrorCode.ExceptionCaught.getErrCode(),
-                ctx.channel() + " connect exception. " + cause.getMessage(),
-                cause);
+                ctx.channel() + " connect exception. " + cause.getMessage(), cause);
             try {
+                // 销毁Channel
                 destroyChannel(ctx.channel());
             } catch (Exception e) {
                 LOGGER.error("failed to close channel {}: {}", ctx.channel(), e.getMessage(), e);
             }
         }
 
+        /**
+         * 通道关闭时触发
+         * @param ctx
+         * @param future
+         * @throws Exception
+         */
         @Override
         public void close(ChannelHandlerContext ctx, ChannelPromise future) throws Exception {
             if (LOGGER.isInfoEnabled()) {

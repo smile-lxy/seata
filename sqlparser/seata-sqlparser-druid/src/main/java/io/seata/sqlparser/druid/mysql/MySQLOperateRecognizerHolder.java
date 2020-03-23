@@ -23,6 +23,7 @@ import io.seata.sqlparser.druid.SQLOperateRecognizerHolder;
 import io.seata.sqlparser.util.JdbcConstants;
 
 /**
+ * MySQL SQL识别器持有者
  * The class MySqlOperateRecognizerHolder
  *
  * @author: Zhibei Hao

@@ -55,14 +55,17 @@ public class ProtocolConstants {
      */
     public static final byte MSGTYPE_RESPONSE = 1;
     /**
+     * 不需响应
      * Message type: Request which no need response
      */
     public static final byte MSGTYPE_RESQUEST_ONEWAY = 2;
     /**
+     * 心跳Request
      * Message type: Heartbeat Request
      */
     public static final byte MSGTYPE_HEARTBEAT_REQUEST = 3;
     /**
+     * 心跳Response
      * Message type: Heartbeat Response
      */
     public static final byte MSGTYPE_HEARTBEAT_RESPONSE = 4;
@@ -76,7 +79,8 @@ public class ProtocolConstants {
      * @see SerializerType#SEATA
      */
     public static final byte CONFIGURED_CODEC = SerializerType.getByName(ConfigurationFactory.getInstance()
-            .getConfig(ConfigurationKeys.SERIALIZE_FOR_RPC, SerializerType.SEATA.name())).getCode();
+        .getConfig(ConfigurationKeys.SERIALIZE_FOR_RPC, SerializerType.SEATA.name())
+    ).getCode();
 
     /**
      * Configured compressor by user, default is NONE
@@ -84,6 +88,7 @@ public class ProtocolConstants {
      * @see CompressorType#NONE
      */
     public static final byte CONFIGURED_COMPRESSOR = CompressorType.getByName(ConfigurationFactory.getInstance()
-            .getConfig(ConfigurationKeys.COMPRESSOR_FOR_RPC, CompressorType.NONE.name())).getCode();
+        .getConfig(ConfigurationKeys.COMPRESSOR_FOR_RPC, CompressorType.NONE.name())
+    ).getCode();
 
 }

@@ -23,6 +23,7 @@ package io.seata.tm.api;
 public interface FailureHandler {
 
     /**
+     * 开启全局事务失败
      * On begin failure.
      *
      * @param tx    the tx
@@ -31,6 +32,7 @@ public interface FailureHandler {
     void onBeginFailure(GlobalTransaction tx, Throwable cause);
 
     /**
+     * 提交全局事务失败
      * On commit failure.
      *
      * @param tx    the tx
@@ -39,6 +41,7 @@ public interface FailureHandler {
     void onCommitFailure(GlobalTransaction tx, Throwable cause);
 
     /**
+     * 回滚全局事务失败
      * On rollback failure.
      *
      * @param tx    the tx
@@ -47,6 +50,7 @@ public interface FailureHandler {
     void onRollbackFailure(GlobalTransaction tx, Throwable cause);
 
     /**
+     * 重试回滚全局事务
      * On rollback retrying
      *
      * @param tx    the tx

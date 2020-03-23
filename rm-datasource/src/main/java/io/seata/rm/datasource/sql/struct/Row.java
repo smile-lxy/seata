@@ -81,6 +81,7 @@ public class Row {
     }
 
     /**
+     * 非主键字段列表
      * Non-primary keys list.
      *
      * @return the non-primary list

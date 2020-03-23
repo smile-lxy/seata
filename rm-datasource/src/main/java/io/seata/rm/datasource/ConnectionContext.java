@@ -77,6 +77,7 @@ public class ConnectionContext {
     }
 
     /**
+     * 是否在全局事务范围内(事务ID是否为空)
      * In global transaction boolean.
      *
      * @return the boolean
@@ -95,6 +96,7 @@ public class ConnectionContext {
     }
 
     /**
+     * 绑定事务
      * Bind.
      *
      * @param xid the xid
@@ -104,9 +106,11 @@ public class ConnectionContext {
             throw new IllegalArgumentException("xid should not be null");
         }
         if (!inGlobalTransaction()) {
+            // 不在全局事务里, 绑定事务
             setXid(xid);
         } else {
             if (!this.xid.equals(xid)) {
+                // 如果不是一个事务, 抛出
                 throw new ShouldNeverHappenException();
             }
         }
@@ -159,6 +163,7 @@ public class ConnectionContext {
 
 
     /**
+     * 连接重置(清理Seata事务相关信息)
      * Reset.
      */
     public void reset() {
@@ -166,6 +171,7 @@ public class ConnectionContext {
     }
 
     /**
+     * 连接重置(清理Seata事务相关信息)
      * Reset.
      *
      * @param xid the xid

@@ -46,6 +46,7 @@ public class ShutdownHook extends Thread {
     private static final int DEFAULT_PRIORITY = 10;
 
     static {
+        // 添加关闭钩子
         Runtime.getRuntime().addShutdownHook(SHUTDOWN_HOOK);
     }
 
@@ -65,6 +66,9 @@ public class ShutdownHook extends Thread {
         disposables.add(new DisposablePriorityWrapper(disposable, priority));
     }
 
+    /**
+     * JVM销毁前调用(kill -9 无效哟)
+     */
     @Override
     public void run() {
         destroyAll();
@@ -79,6 +83,7 @@ public class ShutdownHook extends Thread {
             return;
         }
         for (Disposable disposable : disposables) {
+            // 业务销毁
             disposable.destroy();
         }
     }

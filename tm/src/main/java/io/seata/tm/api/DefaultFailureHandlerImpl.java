@@ -47,9 +47,11 @@ public class DefaultFailureHandlerImpl implements FailureHandler {
 
     private static final int TICKS_PER_WHEEL = 8;
 
+    // 水车轮
     private HashedWheelTimer timer = new HashedWheelTimer(
         new NamedThreadFactory("failedTransactionRetry", 1),
-        TICK_DURATION, TimeUnit.SECONDS, TICKS_PER_WHEEL);
+        TICK_DURATION, TimeUnit.SECONDS, TICKS_PER_WHEEL
+    );
 
     @Override
     public void onBeginFailure(GlobalTransaction tx, Throwable cause) {
@@ -59,20 +61,24 @@ public class DefaultFailureHandlerImpl implements FailureHandler {
     @Override
     public void onCommitFailure(GlobalTransaction tx, Throwable cause) {
         LOGGER.warn("Failed to commit transaction[" + tx.getXid() + "]", cause);
+        // 放到水槽里, 到${delay}下来后执行...
         timer.newTimeout(new CheckTimerTask(tx, GlobalStatus.Committed), SCHEDULE_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
     public void onRollbackFailure(GlobalTransaction tx, Throwable cause) {
         LOGGER.warn("Failed to rollback transaction[" + tx.getXid() + "]", cause);
+        // 放到水槽里, 到${delay}下来后执行...
         timer.newTimeout(new CheckTimerTask(tx, GlobalStatus.Rollbacked), SCHEDULE_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override
     public void onRollbackRetrying(GlobalTransaction tx, Throwable cause) {
         StackTraceLogger.warn(LOGGER, cause, "Retrying to rollback transaction[{}]", new String[] {tx.getXid()});
-        timer.newTimeout(new CheckTimerTask(tx, GlobalStatus.RollbackRetrying), SCHEDULE_INTERVAL_SECONDS,
-            TimeUnit.SECONDS);
+        // 放到水槽里, 到${delay}下来后执行...
+        timer.newTimeout(new CheckTimerTask(tx, GlobalStatus.RollbackRetrying),
+            SCHEDULE_INTERVAL_SECONDS, TimeUnit.SECONDS
+        );
     }
 
     protected class CheckTimerTask implements TimerTask {
@@ -103,11 +109,15 @@ public class DefaultFailureHandlerImpl implements FailureHandler {
         }
     }
 
+    /**
+     * 是否需要停止任务
+     */
     private boolean shouldStop(final GlobalTransaction tx, GlobalStatus required) {
         try {
             GlobalStatus status = tx.getStatus();
             LOGGER.info("transaction [{}] current status is [{}]", tx.getXid(), status);
             if (status == required || status == GlobalStatus.Finished) {
+                // 事务状态到预期的状态或已完成, 就可以停止任务
                 return true;
             }
         } catch (TransactionException e) {

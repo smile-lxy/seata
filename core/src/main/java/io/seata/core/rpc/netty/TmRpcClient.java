@@ -73,6 +73,7 @@ public final class TmRpcClient extends AbstractRpcRemotingClient {
      */
     public static TmRpcClient getInstance(String applicationId, String transactionServiceGroup) {
         TmRpcClient tmRpcClient = getInstance();
+         // 设置当前业务配置信息
         tmRpcClient.setApplicationId(applicationId);
         tmRpcClient.setTransactionServiceGroup(transactionServiceGroup);
         return tmRpcClient;

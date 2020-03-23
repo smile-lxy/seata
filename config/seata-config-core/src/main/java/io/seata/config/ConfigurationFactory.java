@@ -44,21 +44,30 @@ public final class ConfigurationFactory {
     public static final Configuration CURRENT_FILE_INSTANCE;
 
     static {
+        // 系统属性中获取'seata.config.name'
         String seataConfigName = System.getProperty(SYSTEM_PROPERTY_SEATA_CONFIG_NAME);
         if (null == seataConfigName) {
+            // 环境变量中获取'SEATA_CONFIG_NAME'
             seataConfigName = System.getenv(ENV_SEATA_CONFIG_NAME);
         }
         if (null == seataConfigName) {
+            // 默认: 'registry'
             seataConfigName = REGISTRY_CONF_PREFIX;
         }
+        // 系统属性中获取'seataEnv'
         String envValue = System.getProperty(ENV_PROPERTY_KEY);
         if (null == envValue) {
+            // 环境变量中获取'SEATA_ENV'
             envValue = System.getenv(ENV_SYSTEM_KEY);
         }
-        Configuration configuration = (null == envValue) ? new FileConfiguration(seataConfigName + REGISTRY_CONF_SUFFIX,
-            false) : new FileConfiguration(seataConfigName + "-" + envValue + REGISTRY_CONF_SUFFIX, false);
+        Configuration configuration = (null == envValue)
+            // registry.config
+            ? new FileConfiguration(seataConfigName + REGISTRY_CONF_SUFFIX, false)
+            // registry-${env}.config
+            : new FileConfiguration(seataConfigName + "-" + envValue + REGISTRY_CONF_SUFFIX, false);
         Configuration extConfiguration = null;
         try {
+            // SPI机制加载, 读取配置文件(目前默认: SpringBootConfigurationProvider)
             extConfiguration = EnhancedServiceLoader.load(ExtConfigurationProvider.class).provide(configuration);
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info("load extConfiguration:{}",
@@ -67,6 +76,7 @@ public final class ConfigurationFactory {
         } catch (Exception e) {
             LOGGER.warn("failed to load extConfiguration:{}", e.getMessage(), e);
         }
+        // 为空则用原始的Configuration, 有则用动态代理的Configuration
         CURRENT_FILE_INSTANCE = null == extConfiguration ? configuration : extConfiguration;
     }
 
@@ -94,20 +104,25 @@ public final class ConfigurationFactory {
     private static Configuration buildConfiguration() {
         ConfigType configType;
         String configTypeName = null;
-        try {
-            configTypeName = CURRENT_FILE_INSTANCE.getConfig(
-                ConfigurationKeys.FILE_ROOT_CONFIG + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR
-                    + ConfigurationKeys.FILE_ROOT_TYPE);
+        try { // 'config.type'
+            configTypeName = CURRENT_FILE_INSTANCE.getConfig(ConfigurationKeys.FILE_ROOT_CONFIG
+                + ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR + ConfigurationKeys.FILE_ROOT_TYPE);
             configType = ConfigType.getType(configTypeName);
         } catch (Exception e) {
             throw new NotSupportYetException("not support register type: " + configTypeName, e);
         }
         if (ConfigType.File == configType) {
-            String pathDataId = String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR, ConfigurationKeys.FILE_ROOT_CONFIG, FILE_TYPE, NAME_KEY);
+            // 配置文件存放是以File类型
+            // 'config.file.name'
+            String pathDataId = String.join(ConfigurationKeys.FILE_CONFIG_SPLIT_CHAR,
+                ConfigurationKeys.FILE_ROOT_CONFIG, FILE_TYPE, NAME_KEY);
+            // 配置文件名称
             String name = CURRENT_FILE_INSTANCE.getConfig(pathDataId);
+            // 文件类型获取
             Configuration configuration = new FileConfiguration(name);
             Configuration extConfiguration = null;
             try {
+                // 获取额外配置提供者, 读取配置文件
                 extConfiguration = EnhancedServiceLoader.load(ExtConfigurationProvider.class).provide(configuration);
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info("load extConfiguration:{}",
@@ -119,6 +134,7 @@ public final class ConfigurationFactory {
 
             return null == extConfiguration ? configuration : extConfiguration;
         } else {
+            // SPI机制加载, 获取对应提供者做相应操作
             return EnhancedServiceLoader.load(ConfigurationProvider.class, Objects.requireNonNull(configType).name())
                 .provide();
         }

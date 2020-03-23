@@ -142,9 +142,11 @@ public class FileConfiguration extends AbstractConfiguration {
     public String getConfig(String dataId, String defaultValue, long timeoutMills) {
         String value;
         if ((value = getConfigFromSysPro(dataId)) != null) {
+            // 系统配置中存在, 直接返回
             return value;
         }
         ConfigFuture configFuture = new ConfigFuture(dataId, defaultValue, ConfigOperation.GET, timeoutMills);
+        // 提交到线程池中, 异步获取
         configOperateExecutor.submit(new ConfigOperateRunnable(configFuture));
         return (String)configFuture.get();
     }
@@ -228,15 +230,19 @@ public class FileConfiguration extends AbstractConfiguration {
         public void run() {
             if (null != configFuture) {
                 if (configFuture.isTimeout()) {
+                    // 超时, 直接返回失败结果
                     setFailResult(configFuture);
                     return;
                 }
                 try {
                     if (allowDynamicRefresh) {
+                        // 允许动态刷新
+                        // 文件最后更新时间
                         long tempLastModified = new File(targetFilePath).lastModified();
+                        // 若大于加载时获取的最后更新时间, 重新加载
                         if (tempLastModified > targetFileLastModified) {
                             Config tempConfig;
-                            if (name.startsWith(SYS_FILE_RESOURCE_PREFIX)) {
+                            if (name.startsWith(SYS_FILE_RESOURCE_PREFIX)) { // 'file:'
                                 Config appConfig = ConfigFactory.parseFileAnySyntax(new File(targetFilePath));
                                 tempConfig = ConfigFactory.load(appConfig);
                             } else {
@@ -273,9 +279,11 @@ public class FileConfiguration extends AbstractConfiguration {
 
         private void setFailResult(ConfigFuture configFuture) {
             if (configFuture.getOperation() == ConfigOperation.GET) {
+                // Get请求, 返回默认值
                 String result = configFuture.getContent();
                 configFuture.setResult(result);
             } else {
+                // 其他请求, false
                 configFuture.setResult(Boolean.FALSE);
             }
         }

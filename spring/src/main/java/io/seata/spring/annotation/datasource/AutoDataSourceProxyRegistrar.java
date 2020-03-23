@@ -31,11 +31,19 @@ public class AutoDataSourceProxyRegistrar implements ImportBeanDefinitionRegistr
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
+        // BeanDefinition 注册工厂不包含'seataDataSourceBeanPostProcessor'的BeanDefinition
         if (!registry.containsBeanDefinition(BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR)) {
-            boolean useJdkProxy = Boolean.valueOf(importingClassMetadata.getAnnotationAttributes(EnableAutoDataSourceProxy.class.getName()).get(ATTRIBUTE_KEY_USE_JDK_PROXY).toString());
+            // 是否使用jdk代理
+            boolean useJdkProxy = Boolean.valueOf(importingClassMetadata
+                .getAnnotationAttributes(EnableAutoDataSourceProxy.class.getName())
+                .get(ATTRIBUTE_KEY_USE_JDK_PROXY).toString()
+            );
+            // 构建 beanDefinition
             AbstractBeanDefinition beanDefinition = BeanDefinitionBuilder
                 .genericBeanDefinition(SeataDataSourceBeanPostProcessor.class)
-                .addConstructorArgValue(useJdkProxy).getBeanDefinition();
+                .addConstructorArgValue(useJdkProxy)
+                .getBeanDefinition();
+            // 注册到 BeanDefinition 工厂里
             registry.registerBeanDefinition(BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR, beanDefinition);
         }
     }

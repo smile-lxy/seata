@@ -47,6 +47,7 @@ public class CompressorFactory {
         if (COMPRESSOR_MAP.get(type) != null) {
             return COMPRESSOR_MAP.get(type);
         }
+        // SPI机制加载
         Compressor impl = EnhancedServiceLoader.load(Compressor.class, type.name());
         COMPRESSOR_MAP.putIfAbsent(type, impl);
         return impl;

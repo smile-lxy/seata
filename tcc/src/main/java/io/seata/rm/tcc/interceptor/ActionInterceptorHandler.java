@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * TCC 拦截器
  * Handler the TCC Participant Aspect : Setting Context, Creating Branch Record
  *
  * @author zhangsen
@@ -59,15 +60,17 @@ public class ActionInterceptorHandler {
 
         //TCC name
         String actionName = businessAction.name();
-        BusinessActionContext actionContext = new BusinessActionContext();
+        BusinessActionContext actionContext = new BusinessActionContext(); // 上下文
         actionContext.setXid(xid);
         //set action anme
         actionContext.setActionName(actionName);
 
+        // 向TC注册分支事务
         //Creating Branch Record
         String branchId = doTccActionLogStore(method, arguments, businessAction, actionContext);
         actionContext.setBranchId(branchId);
 
+        // 赋值业务上下文
         //set the parameter whose type is BusinessActionContext
         Class<?>[] types = method.getParameterTypes();
         int argIndex = 0;
@@ -80,12 +83,13 @@ public class ActionInterceptorHandler {
         }
         //the final parameters of the try method
         ret.put(Constants.TCC_METHOD_ARGUMENTS, arguments);
-        //the final result
+        //the final result 执行业务方法
         ret.put(Constants.TCC_METHOD_RESULT, targetCallback.execute());
         return ret;
     }
 
     /**
+     * 创建Branch记录
      * Creating Branch Record
      *
      * @param method         the method
@@ -98,24 +102,28 @@ public class ActionInterceptorHandler {
                                          BusinessActionContext actionContext) {
         String actionName = actionContext.getActionName();
         String xid = actionContext.getXid();
-        //
+        // 上下文参数
         Map<String, Object> context = fetchActionRequestContext(method, arguments);
         context.put(Constants.ACTION_START_TIME, System.currentTimeMillis());
 
+        // 初始化业务上下文
         //init business context
         initBusinessContext(context, method, businessAction);
+        // 初始化环境上下文
         //Init running environment context
         initFrameworkContext(context);
         actionContext.setActionContext(context);
 
+        // 初始化应用上下文
         //init applicationData
         Map<String, Object> applicationContext = new HashMap<>(4);
+        // TCC事务上下文
         applicationContext.put(Constants.TCC_ACTION_CONTEXT, context);
         String applicationContextStr = JSON.toJSONString(applicationContext);
         try {
             //registry branch record
-            Long branchId = DefaultResourceManager.get().branchRegister(BranchType.TCC, actionName, null, xid,
-                applicationContextStr, null);
+            Long branchId = DefaultResourceManager.get()
+                .branchRegister(BranchType.TCC, actionName, null, xid, applicationContextStr, null);
             return String.valueOf(branchId);
         } catch (Throwable t) {
             String msg = String.format("TCC branch Register error, xid: %s", xid);
@@ -130,7 +138,7 @@ public class ActionInterceptorHandler {
      * @param context the context
      */
     protected void initFrameworkContext(Map<String, Object> context) {
-        try {
+        try { // 本地IP
             context.put(Constants.HOST_NAME, NetUtil.getLocalIp());
         } catch (Throwable t) {
             LOGGER.warn("getLocalIP error", t);
@@ -147,11 +155,11 @@ public class ActionInterceptorHandler {
     protected void initBusinessContext(Map<String, Object> context, Method method,
                                        TwoPhaseBusinessAction businessAction) {
         if (method != null) {
-            //the phase one method name
+            //the phase one method name 一阶段方法
             context.put(Constants.PREPARE_METHOD, method.getName());
         }
         if (businessAction != null) {
-            //the phase two method name
+            //the phase two method name 二阶段方法
             context.put(Constants.COMMIT_METHOD, businessAction.commitMethod());
             context.put(Constants.ROLLBACK_METHOD, businessAction.rollbackMethod());
             context.put(Constants.ACTION_NAME, businessAction.name());
@@ -172,6 +180,7 @@ public class ActionInterceptorHandler {
         for (int i = 0; i < parameterAnnotations.length; i++) {
             for (int j = 0; j < parameterAnnotations[i].length; j++) {
                 if (parameterAnnotations[i][j] instanceof BusinessActionContextParameter) {
+                    // 业务上下文参数注解
                     BusinessActionContextParameter param = (BusinessActionContextParameter)parameterAnnotations[i][j];
                     if (null == arguments[i]) {
                         throw new IllegalArgumentException("@BusinessActionContextParameter 's params can not null");
@@ -183,6 +192,7 @@ public class ActionInterceptorHandler {
                         @SuppressWarnings("unchecked")
                         Object targetParam = ((List<Object>)paramObject).get(index);
                         if (param.isParamInProperty()) {
+                            // 从对象属性中获取参数
                             context.putAll(ActionContextUtil.fetchContextFromObject(targetParam));
                         } else {
                             context.put(param.paramName(), targetParam);

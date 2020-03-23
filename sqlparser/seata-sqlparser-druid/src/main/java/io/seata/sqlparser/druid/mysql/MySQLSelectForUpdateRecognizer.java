@@ -32,12 +32,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * MySQL Select for Update SQL语句 Where条件识别器
  * The type My sql select for update recognizer.
  *
  * @author sharajava
  */
 public class MySQLSelectForUpdateRecognizer extends BaseMySQLRecognizer implements SQLSelectRecognizer {
 
+    /**
+     * SQL声明(抽象语法树)
+     * https://github.com/alibaba/druid/wiki/Druid_SQL_AST#24-sqlselect--sqlselectquery
+     * AbstractSyntaxTree ast
+     */
     private final SQLSelectStatement ast;
 
     /**
@@ -66,16 +72,26 @@ public class MySQLSelectForUpdateRecognizer extends BaseMySQLRecognizer implemen
 
     @Override
     public String getWhereCondition() {
+        // 获取 select SQL语句
         SQLSelectQueryBlock selectQueryBlock = getSelect();
+        // Where条件
         SQLExpr where = selectQueryBlock.getWhere();
         return super.getWhereCondition(where);
     }
 
+    /**
+     * 获取 select SQL语句
+     * select name, count from undo_log where id = 1
+     * select name, count from undo_log where id = 1
+     * @return
+     */
     private SQLSelectQueryBlock getSelect() {
+        // 获取SQL查询语句
         SQLSelect select = ast.getSelect();
         if (select == null) {
             throw new SQLParsingException("should never happen!");
         }
+        // 获取查询SQL
         SQLSelectQueryBlock selectQueryBlock = select.getQueryBlock();
         if (selectQueryBlock == null) {
             throw new SQLParsingException("should never happen!");

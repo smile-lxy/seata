@@ -19,6 +19,7 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import io.seata.sqlparser.SQLRecognizer;
 
 /**
+ * SQL识别器持有者
  * The interface SQLOperateRecognizerHolder
  *
  * @author: Zhibei Hao

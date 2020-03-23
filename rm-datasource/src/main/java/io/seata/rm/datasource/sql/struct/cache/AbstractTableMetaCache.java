@@ -55,6 +55,7 @@ public abstract class AbstractTableMetaCache implements TableMetaCache {
         }
 
         TableMeta tmeta;
+        // 缓存Key
         final String key = getCacheKey(connection, tableName, resourceId);
         tmeta = TABLE_META_CACHE.get(key, mappingFunction -> {
             try {
@@ -83,11 +84,14 @@ public abstract class AbstractTableMetaCache implements TableMetaCache {
     public void refresh(final Connection connection, String resourceId) {
         ConcurrentMap<String, TableMeta> tableMetaMap = TABLE_META_CACHE.asMap();
         for (Map.Entry<String, TableMeta> entry : tableMetaMap.entrySet()) {
+            // 缓存Key
             String key = getCacheKey(connection, entry.getValue().getTableName(), resourceId);
             if (entry.getKey().equals(key)) {
                 try {
+                    // 表元信息
                     TableMeta tableMeta = fetchSchema(connection, entry.getValue().getTableName());
                     if (!tableMeta.equals(entry.getValue())) {
+                        // 不一致就替换
                         TABLE_META_CACHE.put(entry.getKey(), tableMeta);
                         LOGGER.info("table meta change was found, update table meta cache automatically.");
                     }
@@ -100,6 +104,8 @@ public abstract class AbstractTableMetaCache implements TableMetaCache {
 
 
     /**
+     * 生成缓存Key
+     * jdbc:mysql://127.0.0.1:3306/seata.${tableName}
      * generate cache key
      *
      * @param connection
@@ -110,6 +116,7 @@ public abstract class AbstractTableMetaCache implements TableMetaCache {
     protected abstract String getCacheKey(Connection connection, String tableName, String resourceId);
 
     /**
+     * 获取表元信息
      * get scheme from datasource and tableName
      *
      * @param connection

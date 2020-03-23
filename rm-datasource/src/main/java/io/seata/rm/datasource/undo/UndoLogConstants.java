@@ -27,6 +27,9 @@ public class UndoLogConstants {
 
     public static final String SERIALIZER_KEY = "serializer";
 
+    /**
+     * Undo log 序列化方式
+     */
     public static final String DEFAULT_SERIALIZER = ConfigurationFactory.getInstance()
         .getConfig(ConfigurationKeys.TRANSACTION_UNDO_LOG_SERIALIZATION, DEFAULT_TRANSACTION_UNDO_LOG_SERIALIZATION);
 }

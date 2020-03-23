@@ -16,37 +16,45 @@
 package io.seata.tm.api.transaction;
 
 /**
+ * 事务传播等级
+ * @see org.springframework.transaction.annotation.Propagation
  * Propagation level of global transactions.
  *
  * @author haozhibei
  */
 public enum Propagation {
     /**
+     * 支持型, 不存在则创建新事务
      * The REQUIRED.
      */
     REQUIRED,
 
     /**
+     * 新事务, 当前存在事务, 挂起
      * The REQUIRES_NEW.
      */
     REQUIRES_NEW,
 
     /**
+     * 非事务型执行, 当前存在事务, 挂起
      * The NOT_SUPPORTED
      */
     NOT_SUPPORTED,
 
     /**
+     * 支持型, 不存在则以非事务执行
      * The SUPPORTS
      */
     SUPPORTS,
 
     /**
+     * 非事务方式执行, 当前存在事务, 抛出
      * The NEVER
      */
     NEVER,
 
     /**
+     * 支持当前事务, 当前不存在事务, 抛出
      * The MANDATORY
      */
     MANDATORY

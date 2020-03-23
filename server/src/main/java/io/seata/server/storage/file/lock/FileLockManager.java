@@ -39,6 +39,7 @@ public class FileLockManager extends AbstractLockManager {
 
     @Override
     public boolean releaseGlobalSessionLock(GlobalSession globalSession) throws TransactionException {
+        // 获取Branch事务
         ArrayList<BranchSession> branchSessions = globalSession.getBranchSessions();
         boolean releaseLockResult = true;
         for (BranchSession branchSession : branchSessions) {

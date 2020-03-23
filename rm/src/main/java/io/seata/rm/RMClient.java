@@ -32,9 +32,13 @@ public class RMClient {
      * @param transactionServiceGroup the transaction service group
      */
     public static void init(String applicationId, String transactionServiceGroup) {
+        // RM RPC Client
         RmRpcClient rmRpcClient = RmRpcClient.getInstance(applicationId, transactionServiceGroup);
+        // 配置资源管理器
         rmRpcClient.setResourceManager(DefaultResourceManager.get());
+        // 添加消息监听器, 程序关闭时已备监听器作出相应业务处理
         rmRpcClient.setClientMessageListener(new RmMessageListener(DefaultRMHandler.get(), rmRpcClient));
+        // RM RPC Client 初始化
         rmRpcClient.init();
     }
 

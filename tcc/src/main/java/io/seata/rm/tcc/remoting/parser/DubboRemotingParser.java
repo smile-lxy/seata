@@ -44,6 +44,7 @@ public class DubboRemotingParser extends AbstractedRemotingParser {
     @Override
     public RemotingDesc getServiceDesc(Object bean, String beanName) throws FrameworkException {
         if (!this.isRemoting(bean, beanName)) {
+            // 非远程Bean, 直接返回
             return null;
         }
         try {

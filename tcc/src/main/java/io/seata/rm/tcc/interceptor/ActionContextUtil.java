@@ -57,14 +57,18 @@ public class ActionContextUtil {
                     Object paramObject = f.get(targetParam);
                     int index = annotation.index();
                     if (index >= 0) {
+                        // 如果设置了指针, 按指针来
                         @SuppressWarnings("unchecked")
+                        // 转换为List
                         Object targetObject = ((List<Object>)paramObject).get(index);
                         if (annotation.isParamInProperty()) {
                             context.putAll(fetchContextFromObject(targetObject));
                         } else {
                             if (StringUtils.isBlank(annotation.paramName())) {
+                                // 如果注解未指定字段名称, 默认按参数字段名称
                                 context.put(fieldName, paramObject);
                             } else {
+                                // 如果注解指定了字段名称, 按注解指定字段来
                                 context.put(annotation.paramName(), paramObject);
                             }
                         }
@@ -88,6 +92,7 @@ public class ActionContextUtil {
     }
 
     /**
+     * 获取对象及其上级所有字段
      * Gets all field.
      *
      * @param interFace the inter face

@@ -23,6 +23,7 @@ import java.net.URL;
 import java.security.CodeSource;
 
 /**
+ * 默认Druid加载器
  * @author ggndnn
  */
 class DefaultDruidLoader implements DruidLoader {

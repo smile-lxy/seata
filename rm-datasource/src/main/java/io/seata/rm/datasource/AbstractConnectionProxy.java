@@ -105,18 +105,24 @@ public abstract class AbstractConnectionProxy implements Connection {
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
         String dbType = getDbType();
+        // 原始预编译
         // support oracle 10.2+
         PreparedStatement targetPreparedStatement = null;
         if (RootContext.inGlobalTransaction()) {
+            // 获取SQL识别器
             SQLRecognizer sqlRecognizer = SQLVisitorFactory.get(sql, dbType);
             if (sqlRecognizer != null && sqlRecognizer.getSQLType() == SQLType.INSERT) {
+                // 表名
                 String tableName = ColumnUtils.delEscape(sqlRecognizer.getTableName(), dbType);
-                TableMeta tableMeta = TableMetaCacheFactory.getTableMetaCache(dbType).getTableMeta(getTargetConnection(),
-                    tableName,getDataSourceProxy().getResourceId());
+                // 获取对应表元信息工厂, 获取表元信息
+                TableMeta tableMeta = TableMetaCacheFactory.getTableMetaCache(dbType)
+                    .getTableMeta(getTargetConnection(), tableName,getDataSourceProxy().getResourceId());
+                // 预编译
                 targetPreparedStatement = getTargetConnection().prepareStatement(sql, new String[]{tableMeta.getPkName()});
             }
         }
         if (targetPreparedStatement == null) {
+            // 如果预编译失败, 无参预编译
             targetPreparedStatement = getTargetConnection().prepareStatement(sql);
         }
         return new PreparedStatementProxy(this, targetPreparedStatement, sql);
@@ -124,6 +130,7 @@ public abstract class AbstractConnectionProxy implements Connection {
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
+        // 检测必须不在全局事务中
         RootContext.assertNotInGlobalTransaction();
         return targetConnection.prepareCall(sql);
     }
@@ -197,12 +204,18 @@ public abstract class AbstractConnectionProxy implements Connection {
 
     }
 
+    /**
+     * 创建预编译结果
+     */
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         Statement statement = targetConnection.createStatement(resultSetType, resultSetConcurrency);
         return new StatementProxy<Statement>(this, statement);
     }
 
+    /**
+     * 准备预编译
+     */
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
             throws SQLException {
@@ -211,8 +224,12 @@ public abstract class AbstractConnectionProxy implements Connection {
         return new PreparedStatementProxy(this, preparedStatement, sql);
     }
 
+    /**
+     * 开始预编译
+     */
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+        // 检测必须不在全局事务中
         RootContext.assertNotInGlobalTransaction();
         return targetConnection.prepareCall(sql, resultSetType, resultSetConcurrency);
     }

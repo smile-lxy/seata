@@ -67,6 +67,8 @@ public class LogStoreSqls {
         + ServerTableColumnsName.BRANCH_TABLE_GMT_CREATE + ", " + ServerTableColumnsName.BRANCH_TABLE_GMT_MODIFIED;
 
     /**
+     * insert into global_table (xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified)
+     * values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_GLOBAL_TRANSACTION_MYSQL.
      */
     public static final String INSERT_GLOBAL_TRANSACTION_MYSQL = "insert into " + GLOBAL_TABLE_PLACEHOLD + "("
@@ -74,6 +76,8 @@ public class LogStoreSqls {
         "values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) ";
 
     /**
+     * insert into global_table (xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified)
+     * values(?, ?, ?, ?, ?, ?, ?, ?, ?, sysdate, sysdate)
      * The constant INSERT_GLOBAL_TRANSACTION_ORACLE.
      */
     public static final String INSERT_GLOBAL_TRANSACTION_ORACLE = "insert into " + GLOBAL_TABLE_PLACEHOLD + "("
@@ -81,6 +85,8 @@ public class LogStoreSqls {
         "values(?, ?, ?, ?, ?, ?, ?, ?, ?, sysdate, sysdate) ";
 
     /**
+     * insert into global_table (xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified)
+     * values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_GLOBAL_TRANSACTION_POSTGRESQL.
      */
     public static final String INSERT_GLOBAL_TRANSACTION_POSTGRESQL = "insert into " + GLOBAL_TABLE_PLACEHOLD + "("
@@ -88,40 +94,54 @@ public class LogStoreSqls {
         "values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now()) ";
 
     /**
+     * update global_table set status = ?, gmt_modified = now() where xid = ?
      * The constant UPDATE_GLOBAL_TRANSACTION_STATUS_MYSQL.
      */
     public static final String UPDATE_GLOBAL_TRANSACTION_STATUS_MYSQL = "update " + GLOBAL_TABLE_PLACEHOLD
-        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = now() where " + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
+        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = now() where "
+        + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
 
     /**
+     * update global_table set status = ?, gmt_modified = sysdate where xid = ?
      * The constant UPDATE_GLOBAL_TRANSACTION_STATUS_ORACLE.
      */
     public static final String UPDATE_GLOBAL_TRANSACTION_STATUS_ORACLE = "update " + GLOBAL_TABLE_PLACEHOLD
-        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = sysdate where " + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
+        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = sysdate where "
+        + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
+
     /**
+     * update global_table set status = ?, gmt_modified = now() where xid = ?
      * The constant UPDATE_GLOBAL_TRANSACTION_STATUS_POSTGRESQL.
      */
     public static final String UPDATE_GLOBAL_TRANSACTION_STATUS_POSTGRESQL = "update " + GLOBAL_TABLE_PLACEHOLD
-        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = now() where " + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
+        + " set " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " = ?, " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " = now() where "
+        + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
 
     /**
+     * delete from global_table where xid = ?
      * The constant DELETE_GLOBAL_TRANSACTION.
      */
     public static final String DELETE_GLOBAL_TRANSACTION = "delete from " + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where xid = ?
      * The constant QUERY_GLOBAL_TRANSACTION.
      */
     public static final String QUERY_GLOBAL_TRANSACTION = "select " + ALL_GLOBAL_COLUMNS + " from "
         + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_XID + " = ?";
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where transaction_id = ?
      * The constant QUERY_GLOBAL_TRANSACTION_ID.
      */
     public static final String QUERY_GLOBAL_TRANSACTION_BY_ID = "select " + ALL_GLOBAL_COLUMNS + " from "
         + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID + " = ?";
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in ( ${params} ) order by gmt_modified limit ?
      * The constant QUERY_GLOBAL_TRANSACTION_BY_STATUS.
      */
     public static final String QUERY_GLOBAL_TRANSACTION_BY_STATUS_MYSQL =
@@ -129,6 +149,13 @@ public class LogStoreSqls {
                     + " where " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " in (" + PRAMETER_PLACEHOLD + ")"
                     + " order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " limit ?";
 
+    /**
+     * select t.* from (
+     *  select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     *      from global_table where status in ( ${params} ) order by gmt_modified
+     * ) t
+     * where ROWNUM <= ?
+     */
     public static final String QUERY_GLOBAL_TRANSACTION_BY_STATUS_ORACLE =
         "select t.* from ("
             + "  select " + ALL_GLOBAL_COLUMNS + " from " + GLOBAL_TABLE_PLACEHOLD
@@ -136,12 +163,18 @@ public class LogStoreSqls {
             + "  order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + ") t"
             + " where ROWNUM <= ?";
 
+    /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in ( ${params} ) order by gmt_modified limit ?
+     */
     public static final String QUERY_GLOBAL_TRANSACTION_BY_STATUS_POSTGRESQL =
         "select " + ALL_GLOBAL_COLUMNS + " from " + GLOBAL_TABLE_PLACEHOLD
             + " where " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " in (" + PRAMETER_PLACEHOLD + ")"
             + " order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " limit ?";
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in (0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by gmt_modified limit ?
      * The constant QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_MYSQL.
      */
     public static final String QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_MYSQL = "select " + ALL_GLOBAL_COLUMNS + " from "
@@ -149,12 +182,19 @@ public class LogStoreSqls {
         "0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " limit ?";
 
     /**
+     * select A.* from (
+     *  select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     *      from global_table where status in (0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by gmt_modified
+     * ) A where ROWNUM <= ?
      * The constant QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_ORACLE.
      */
     public static final String QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_ORACLE = "select A.* from ( select "
         + ALL_GLOBAL_COLUMNS + " from " + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_STATUS + " in (" +
         "0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " ) A where ROWNUM <= ?";
+
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in (0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by gmt_modified limit ?
      * The constant QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_POSTGRESQL.
      */
     public static final String QUERY_GLOBAL_TRANSACTION_FOR_RECOVERY_POSTGRESQL = "select " + ALL_GLOBAL_COLUMNS + " from "
@@ -162,6 +202,9 @@ public class LogStoreSqls {
         "0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by " + ServerTableColumnsName.GLOBAL_TABLE_GMT_MODIFIED + " limit ?";
 
     /**
+     * insert into branch_table
+     * (xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_BRANCH_TRANSACTION_MYSQL.
      */
     public static final String INSERT_BRANCH_TRANSACTION_MYSQL = "insert into " + BRANCH_TABLE_PLACEHOLD + "("
@@ -169,6 +212,9 @@ public class LogStoreSqls {
         "values (?, ?, ?, ?, ?, ?, ?, ?, ?, now(6), now(6))";
 
     /**
+     * insert into branch_table
+     * (xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, ?, ?, systimestamp, systimestamp)
      * The constant INSERT_BRANCH_TRANSACTION_ORACLE.
      */
     public static final String INSERT_BRANCH_TRANSACTION_ORACLE = "insert into " + BRANCH_TABLE_PLACEHOLD + "("
@@ -176,6 +222,9 @@ public class LogStoreSqls {
         "values (?, ?, ?, ?, ?, ?, ?, ?, ?, systimestamp, systimestamp)";
 
     /**
+     * insert into branch_table
+     * (xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * The constant INSERT_BRANCH_TRANSACTION_POSTGRESQL.
      */
     public static final String INSERT_BRANCH_TRANSACTION_POSTGRESQL = "insert into " + BRANCH_TABLE_PLACEHOLD + "("
@@ -183,6 +232,7 @@ public class LogStoreSqls {
         "values (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())";
 
     /**
+     * update branch_table set status = ?, gmt_modified = now(6) where xid = ? and branch_id = ?
      * The constant UPDATE_BRANCH_TRANSACTION_STATUS_MYSQL.
      */
     public static final String UPDATE_BRANCH_TRANSACTION_STATUS_MYSQL = "update " + BRANCH_TABLE_PLACEHOLD
@@ -190,13 +240,16 @@ public class LogStoreSqls {
         + ServerTableColumnsName.BRANCH_TABLE_XID + " = ? and " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " = ?";
 
     /**
+     * update branch_table set status = ?, gmt_modified = systimestamp where xid = ? and branch_id = ?
      * The constant UPDATE_BRANCH_TRANSACTION_STATUS_ORACLE.
      */
     public static final String UPDATE_BRANCH_TRANSACTION_STATUS_ORACLE = "update " + BRANCH_TABLE_PLACEHOLD
         + " set " + ServerTableColumnsName.BRANCH_TABLE_STATUS + " = ?, " + ServerTableColumnsName.BRANCH_TABLE_GMT_MODIFIED
         + " = systimestamp where " + ServerTableColumnsName.BRANCH_TABLE_XID + " = ? and " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID
         + " = ?";
+
     /**
+     * update branch_table set status = ?, gmt_modified = new() where xid = ? and branch_id = ?
      * The constant UPDATE_BRANCH_TRANSACTION_STATUS_POSTGRESQL.
      */
     public static final String UPDATE_BRANCH_TRANSACTION_STATUS_POSTGRESQL = "update " + BRANCH_TABLE_PLACEHOLD
@@ -204,19 +257,23 @@ public class LogStoreSqls {
         + " = now() where " + ServerTableColumnsName.BRANCH_TABLE_XID + " = ? and " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " = ?";
 
     /**
+     * delete from branch_table where xid = ? and branch_id = ?
      * The constant DELETE_BRANCH_TRANSACTION_BY_BRANCH_ID.
      */
     public static final String DELETE_BRANCH_TRANSACTION_BY_BRANCH_ID = "delete from " + BRANCH_TABLE_PLACEHOLD
-        + " where " + ServerTableColumnsName.BRANCH_TABLE_XID + " = ? and " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID
-        + " = ?";
+        + " where " + ServerTableColumnsName.BRANCH_TABLE_XID + " = ? and " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " = ?";
 
     /**
+     * delete from branch_table where xid = ?
      * The constant DELETE_BRANCH_TRANSACTION_BY_XID.
      */
     public static final String DELETE_BRANCH_TRANSACTION_BY_XID = "delete from " + BRANCH_TABLE_PLACEHOLD
         + " where " + ServerTableColumnsName.BRANCH_TABLE_XID + " = ?";
 
     /**
+     * select xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified
+     * from branch_table where xid = ?
+     * order by gmt_create asc
      * The constant QUERY_BRANCH_TRANSACTION.
      */
     public static final String QUERY_BRANCH_TRANSACTION = "select " + ALL_BRANCH_COLUMNS + " from "
@@ -224,6 +281,9 @@ public class LogStoreSqls {
         + ServerTableColumnsName.BRANCH_TABLE_GMT_CREATE + " asc";
 
     /**
+     * select xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified
+     * from branch_table where xid in (?, ?, ?, ...)
+     * order by gmt_create asc
      * The constant QUERY_BRANCH_TRANSACTION_XIDS.
      */
     public static final String QUERY_BRANCH_TRANSACTION_XIDS = "select " + ALL_BRANCH_COLUMNS + " from "
@@ -231,20 +291,26 @@ public class LogStoreSqls {
         + ServerTableColumnsName.BRANCH_TABLE_GMT_CREATE + " asc";
 
     /**
+     * select max(transaction_id) from global_table
+     * where transaction_id < ? and transaction_id > ?
      * The constant CHECK_MAX_TRANS_ID.
      */
-    public static final String QUERY_MAX_TRANS_ID = "select max(" + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID
-        + ") from " + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID
-        + " < ? and " + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID + " > ?";
+    public static final String QUERY_MAX_TRANS_ID = "select max(" + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID + ") from "
+        + GLOBAL_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID + " < ? and "
+        + ServerTableColumnsName.GLOBAL_TABLE_TRANSACTION_ID + " > ?";
 
     /**
+     * select max(branch_id) from branch_table
+     * where branch_id < ? and branch_id > ?
      * The constant CHECK_MAX_BTANCH_ID.
      */
-    public static final String QUERY_MAX_BTANCH_ID = "select max(" + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID
-        + ") from " + BRANCH_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " < ? and "
+    public static final String QUERY_MAX_BTANCH_ID = "select max(" + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + ") from "
+        + BRANCH_TABLE_PLACEHOLD + " where " + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " < ? and "
         + ServerTableColumnsName.BRANCH_TABLE_BRANCH_ID + " > ?";
 
     /**
+     * insert into global_table (xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified)
+     * values(?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * Get insert global transaction sql string.
      *
      * @param globalTable the global table
@@ -266,6 +332,7 @@ public class LogStoreSqls {
     }
 
     /**
+     * update global_table set status = ?, gmt_modified = now() where xid = ?
      * Get update global transaction status sql string.
      *
      * @param globalTable the global table
@@ -287,6 +354,7 @@ public class LogStoreSqls {
     }
 
     /**
+     * delete from global_table where xid = ?
      * Get delete global transaction sql string.
      *
      * @param globalTable the global table
@@ -298,6 +366,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where xid = ?
      * Get query global transaction sql string.
      *
      * @param globalTable the global table
@@ -309,6 +379,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where transaction_id = ?
      * Get query global transaction sql by transaction id string.
      *
      * @param globalTable the global table
@@ -320,6 +392,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in ( ${params} ) order by gmt_modified limit ?
      * Get query global transaction sql by status string.
      *
      * @param globalTable       the global table
@@ -346,6 +420,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, status, application_id, transaction_service_group, transaction_name, timeout, begin_time, application_data, gmt_create, gmt_modified
+     * from global_table where status in (0, 2, 3, 4, 5, 6, 7, 8, 10 ,12, 14) order by gmt_modified limit ?
      * Get query global transaction for recovery sql string.
      *
      * @param globalTable the global table
@@ -367,6 +443,9 @@ public class LogStoreSqls {
     }
 
     /**
+     * insert into branch_table
+     * (xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified)
+     * values (?, ?, ?, ?, ?, ?, ?, ?, ?, now(), now())
      * Get insert branch transaction sql string.
      *
      * @param branchTable the branch table
@@ -388,6 +467,7 @@ public class LogStoreSqls {
     }
 
     /**
+     * update branch_table set status = ?, gmt_modified = now(6) where xid = ? and branch_id = ?
      * Get update branch transaction status sql string.
      *
      * @param branchTable the branch table
@@ -409,6 +489,7 @@ public class LogStoreSqls {
     }
 
     /**
+     * delete from branch_table where xid = ? and branch_id = ?
      * Get delete branch transaction by branch id sql string.
      *
      * @param branchTable the branch table
@@ -420,6 +501,7 @@ public class LogStoreSqls {
     }
 
     /**
+     * delete from branch_table where xid = ?
      * Get delete branch transaction by x id string.
      *
      * @param branchTable the branch table
@@ -431,6 +513,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified
+     * from branch_table where xid = ?
      * Get query branch transaction string.
      *
      * @param branchTable the branch table
@@ -442,6 +526,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select xid, transaction_id, branch_id, resource_group_id, resource_id, lock_key, branch_type, status, client_id, application_data, gmt_create, gmt_modified
+     * from branch_table where xid in (?, ?, ?, ...)
      * Get query branch transaction string.
      *
      * @param branchTable the branch table
@@ -456,6 +542,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select max(transaction_id) from global_table
+     * where transaction_id < ? and transaction_id > ?
      * Gets query global max.
      *
      * @param globalTable the global table
@@ -467,6 +555,8 @@ public class LogStoreSqls {
     }
 
     /**
+     * select max(branch_id) from branch_table
+     * where branch_id < ? and branch_id > ?
      * Gets query branch max.
      *
      * @param branchTable the branch table

@@ -51,11 +51,11 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
 
     private GlobalTransactionRole role;
 
-    private static final int COMMIT_RETRY_COUNT = ConfigurationFactory.getInstance().getInt(
-        ConfigurationKeys.CLIENT_TM_COMMIT_RETRY_COUNT, DEFAULT_TM_COMMIT_RETRY_COUNT);
+    private static final int COMMIT_RETRY_COUNT = ConfigurationFactory.getInstance()
+        .getInt(ConfigurationKeys.CLIENT_TM_COMMIT_RETRY_COUNT, DEFAULT_TM_COMMIT_RETRY_COUNT);
 
-    private static final int ROLLBACK_RETRY_COUNT = ConfigurationFactory.getInstance().getInt(
-        ConfigurationKeys.CLIENT_TM_ROLLBACK_RETRY_COUNT, DEFAULT_TM_ROLLBACK_RETRY_COUNT);
+    private static final int ROLLBACK_RETRY_COUNT = ConfigurationFactory.getInstance()
+        .getInt(ConfigurationKeys.CLIENT_TM_ROLLBACK_RETRY_COUNT, DEFAULT_TM_ROLLBACK_RETRY_COUNT);
 
     /**
      * Instantiates a new Default global transaction.
@@ -91,18 +91,23 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
     @Override
     public void begin(int timeout, String name) throws TransactionException {
         if (role != GlobalTransactionRole.Launcher) {
+            // 当前事务角色不处于启动状态, 检测事务ID是否存在
             assertXIDNotNull();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Ignore Begin(): just involved in global transaction [{}]", xid);
             }
             return;
         }
+        // 事务角色处于启动状态, 事务ID必须为空
         assertXIDNull();
         if (RootContext.getXID() != null) {
             throw new IllegalStateException();
         }
+        // 请求开启全局事务
         xid = transactionManager.begin(null, null, name, timeout);
+        // 设置事务角色为开启状态
         status = GlobalStatus.Begin;
+        // 绑定事务ID
         RootContext.bind(xid);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info("Begin new global transaction [{}]", xid);
@@ -113,21 +118,26 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
     @Override
     public void commit() throws TransactionException {
         if (role == GlobalTransactionRole.Participant) {
+            // 当前事务角色不处于启动状态, 返回
             // Participant has no responsibility of committing
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Ignore Commit(): just involved in global transaction [{}]", xid);
             }
             return;
         }
+        // 事务ID必须存在
         assertXIDNotNull();
+        // 重试次数
         int retry = COMMIT_RETRY_COUNT;
         try {
             while (retry > 0) {
                 try {
+                    // 请求提交全局事务
                     status = transactionManager.commit(xid);
                     break;
                 } catch (Throwable ex) {
-                    LOGGER.error("Failed to report global commit [{}],Retry Countdown: {}, reason: {}", this.getXid(), retry, ex.getMessage());
+                    LOGGER.error("Failed to report global commit [{}],Retry Countdown: {}, reason: {}",
+                        this.getXid(), retry, ex.getMessage());
                     retry--;
                     if (retry == 0) {
                         throw new TransactionException("Failed to report global commit", ex);
@@ -148,22 +158,27 @@ public class DefaultGlobalTransaction implements GlobalTransaction {
     @Override
     public void rollback() throws TransactionException {
         if (role == GlobalTransactionRole.Participant) {
+            // 当前事务角色不处于启动状态, 返回
             // Participant has no responsibility of rollback
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Ignore Rollback(): just involved in global transaction [{}]", xid);
             }
             return;
         }
+        // 事务ID必须存在
         assertXIDNotNull();
 
+        // 重试次数
         int retry = ROLLBACK_RETRY_COUNT;
         try {
             while (retry > 0) {
                 try {
+                    // 请求回滚全局事务
                     status = transactionManager.rollback(xid);
                     break;
                 } catch (Throwable ex) {
-                    LOGGER.error("Failed to report global rollback [{}],Retry Countdown: {}, reason: {}", this.getXid(), retry, ex.getMessage());
+                    LOGGER.error("Failed to report global rollback [{}],Retry Countdown: {}, reason: {}",
+                        this.getXid(), retry, ex.getMessage());
                     retry--;
                     if (retry == 0) {
                         throw new TransactionException("Failed to report global rollback", ex);

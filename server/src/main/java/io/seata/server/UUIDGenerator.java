@@ -95,6 +95,7 @@ public class UUIDGenerator {
     }
 
     /**
+     * 初始化UUID生成器
      * Init.
      *
      * @param serverNodeId the server node id
