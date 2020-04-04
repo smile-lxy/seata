@@ -27,24 +27,29 @@ import org.springframework.core.type.AnnotationMetadata;
  */
 public class AutoDataSourceProxyRegistrar implements ImportBeanDefinitionRegistrar {
     private static final String ATTRIBUTE_KEY_USE_JDK_PROXY = "useJdkProxy";
-    public static final String BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR = "seataDataSourceBeanPostProcessor";
+    private static final String ATTRIBUTE_KEY_EXCLUDES = "excludes";
+    public static final String BEAN_NAME_SEATA_AUTO_DATA_SOURCE_PROXY_CREATOR = "seataAutoDataSourceProxyCreator";
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
         // BeanDefinition 注册工厂不包含'seataDataSourceBeanPostProcessor'的BeanDefinition
-        if (!registry.containsBeanDefinition(BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR)) {
+        if (!registry.containsBeanDefinition(BEAN_NAME_SEATA_AUTO_DATA_SOURCE_PROXY_CREATOR)) {
             // 是否使用jdk代理
-            boolean useJdkProxy = Boolean.valueOf(importingClassMetadata
+            boolean useJdkProxy = Boolean.parseBoolean(importingClassMetadata
                 .getAnnotationAttributes(EnableAutoDataSourceProxy.class.getName())
                 .get(ATTRIBUTE_KEY_USE_JDK_PROXY).toString()
             );
+            // 需要排除数据源代理
+            String[] excludes = (String[]) importingClassMetadata.getAnnotationAttributes(EnableAutoDataSourceProxy.class.getName())
+                .get(ATTRIBUTE_KEY_EXCLUDES);
             // 构建 beanDefinition
             AbstractBeanDefinition beanDefinition = BeanDefinitionBuilder
-                .genericBeanDefinition(SeataDataSourceBeanPostProcessor.class)
+                .genericBeanDefinition(SeataAutoDataSourceProxyCreator.class)
                 .addConstructorArgValue(useJdkProxy)
+                .addConstructorArgValue(excludes)
                 .getBeanDefinition();
             // 注册到 BeanDefinition 工厂里
-            registry.registerBeanDefinition(BEAN_NAME_SEATA_DATA_SOURCE_BEAN_POST_PROCESSOR, beanDefinition);
+            registry.registerBeanDefinition(BEAN_NAME_SEATA_AUTO_DATA_SOURCE_PROXY_CREATOR, beanDefinition);
         }
     }
 

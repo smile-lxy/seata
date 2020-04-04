@@ -39,6 +39,7 @@ import io.seata.core.constants.ConfigurationKeys;
 import io.seata.core.constants.ServerTableColumnsName;
 import io.seata.core.store.LockDO;
 import io.seata.core.store.LockStore;
+import io.seata.core.store.db.sql.lock.LockStoreSqlFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,9 +60,9 @@ public class LockStoreDataBaseDAO implements LockStore {
     protected static final Configuration CONFIG = ConfigurationFactory.getInstance();
 
     /**
-     * The Log store data source.
+     * The Lock store data source.
      */
-    protected DataSource logStoreDataSource = null;
+    protected DataSource lockStoreDataSource;
 
     /**
      * lock_table
@@ -77,17 +78,17 @@ public class LockStoreDataBaseDAO implements LockStore {
     /**
      * Instantiates a new Data base lock store dao.
      *
-     * @param logStoreDataSource the log store data source
+     * @param lockStoreDataSource the log store data source
      */
-    public LockStoreDataBaseDAO(DataSource logStoreDataSource) {
-        this.logStoreDataSource = logStoreDataSource;
+    public LockStoreDataBaseDAO(DataSource lockStoreDataSource) {
+        this.lockStoreDataSource = lockStoreDataSource;
         lockTable = CONFIG.getConfig(ConfigurationKeys.LOCK_DB_TABLE, DEFAULT_LOCK_DB_TABLE);
         dbType = CONFIG.getConfig(ConfigurationKeys.STORE_DB_TYPE);
         if (StringUtils.isBlank(dbType)) {
             throw new StoreException("there must be db type.");
         }
-        if (logStoreDataSource == null) {
-            throw new StoreException("there must be logStoreDataSource.");
+        if (lockStoreDataSource == null) {
+            throw new StoreException("there must be lockStoreDataSource.");
         }
     }
 
@@ -110,7 +111,7 @@ public class LockStoreDataBaseDAO implements LockStore {
                 .collect(Collectors.toList());
         }
         try {
-            conn = logStoreDataSource.getConnection();
+            conn = lockStoreDataSource.getConnection();
             if (originalAutoCommit = conn.getAutoCommit()) {
                 // 设置为手动提交
                 conn.setAutoCommit(false);
@@ -121,8 +122,8 @@ public class LockStoreDataBaseDAO implements LockStore {
                 sj.add("?");
             }
             boolean canLock = true;
-            // SQL语句
-            String checkLockSQL = LockStoreSqls.getCheckLockableSql(lockTable, sj.toString(), dbType);
+            //query SQL语句
+            String checkLockSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getCheckLockableSql(lockTable, sj.toString());
             // 预编译
             ps = conn.prepareStatement(checkLockSQL);
             // 填充SQL值
@@ -226,7 +227,7 @@ public class LockStoreDataBaseDAO implements LockStore {
         Connection conn = null;
         PreparedStatement ps = null;
         try {
-            conn = logStoreDataSource.getConnection();
+            conn = lockStoreDataSource.getConnection();
             // 设置为自动提交
             conn.setAutoCommit(true);
 
@@ -236,7 +237,7 @@ public class LockStoreDataBaseDAO implements LockStore {
             }
             // SQL语句
             //batch release lock
-            String batchDeleteSQL = LockStoreSqls.getBatchDeleteLockSql(lockTable, sj.toString(), dbType);
+            String batchDeleteSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getBatchDeleteLockSql(lockTable, sj.toString());
             // 预编译
             ps = conn.prepareStatement(batchDeleteSQL);
             // 填充SQL值
@@ -260,12 +261,12 @@ public class LockStoreDataBaseDAO implements LockStore {
         Connection conn = null;
         PreparedStatement ps = null;
         try {
-            conn = logStoreDataSource.getConnection();
+            conn = lockStoreDataSource.getConnection();
             // 设置自动提交
             conn.setAutoCommit(true);
             // SQL 语句
-            //batch release lock by branch Branch
-            String batchDeleteSQL = LockStoreSqls.getBatchDeleteLockSqlByBranch(lockTable, dbType);
+            //batch release lock by branch
+            String batchDeleteSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getBatchDeleteLockSqlByBranch(lockTable);
             // 预编译
             ps = conn.prepareStatement(batchDeleteSQL);
             // 填充SQL值
@@ -287,14 +288,14 @@ public class LockStoreDataBaseDAO implements LockStore {
         Connection conn = null;
         PreparedStatement ps = null;
         try {
-            conn = logStoreDataSource.getConnection();
+            conn = lockStoreDataSource.getConnection();
             // 设置自动提交
             conn.setAutoCommit(true);
             StringJoiner sj = new StringJoiner(",");
             branchIds.forEach(branchId -> sj.add("?"));
             // SQL语句
             //batch release lock by branch list
-            String batchDeleteSQL = LockStoreSqls.getBatchDeleteLockSqlByBranchs(lockTable, sj.toString(), dbType);
+            String batchDeleteSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getBatchDeleteLockSqlByBranchs(lockTable, sj.toString());
             // 预编译
             ps = conn.prepareStatement(batchDeleteSQL);
             // 填充SQL值
@@ -317,10 +318,13 @@ public class LockStoreDataBaseDAO implements LockStore {
     public boolean isLockable(List<LockDO> lockDOs) {
         Connection conn = null;
         try {
-            conn = logStoreDataSource.getConnection();
+            conn = lockStoreDataSource.getConnection();
             // 设置自动提交
             conn.setAutoCommit(true);
-            return checkLockable(conn, lockDOs);
+            if (!checkLockable(conn, lockDOs)) {
+                return false;
+            }
+            return true;
         } catch (SQLException e) {
             throw new DataAccessException(e);
         } finally {
@@ -341,8 +345,8 @@ public class LockStoreDataBaseDAO implements LockStore {
         PreparedStatement ps = null;
         try {
             //SQL 语句
-            String insertLockSQL = LockStoreSqls.getInsertLockSQL(lockTable, dbType);
-            // 预编译
+            //insert
+            String insertLockSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getInsertLockSQL(lockTable);
             ps = conn.prepareStatement(insertLockSQL);
             // 填充SQL值
             ps.setString(1, lockDO.getXid());
@@ -374,7 +378,7 @@ public class LockStoreDataBaseDAO implements LockStore {
         PreparedStatement ps = null;
         try {
             //insert
-            String insertLockSQL = LockStoreSqls.getInsertLockSQL(lockTable, dbType);
+            String insertLockSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getInsertLockSQL(lockTable);
             ps = conn.prepareStatement(insertLockSQL);
             // 填充SQL值
             for (LockDO lockDO : lockDOs) {
@@ -415,9 +419,9 @@ public class LockStoreDataBaseDAO implements LockStore {
             for (int i = 0; i < lockDOs.size(); i++) {
                 sj.add("?");
             }
-
             // SQL语句
-            String checkLockSQL = LockStoreSqls.getCheckLockableSql(lockTable, sj.toString(), dbType);
+            //query
+            String checkLockSQL = LockStoreSqlFactory.getLogStoreSql(dbType).getCheckLockableSql(lockTable, sj.toString());
             // 预编译
             ps = conn.prepareStatement(checkLockSQL);
             // 填充SQL值
@@ -464,9 +468,9 @@ public class LockStoreDataBaseDAO implements LockStore {
     /**
      * Sets log store data source.
      *
-     * @param logStoreDataSource the log store data source
+     * @param lockStoreDataSource the log store data source
      */
-    public void setLogStoreDataSource(DataSource logStoreDataSource) {
-        this.logStoreDataSource = logStoreDataSource;
+    public void setLogStoreDataSource(DataSource lockStoreDataSource) {
+        this.lockStoreDataSource = lockStoreDataSource;
     }
 }

@@ -42,7 +42,7 @@ public class RegistryFactory {
                 throw new NotSupportYetException("not support metrics registry type: " + registryTypeName);
             }
             // SPI机制加载, 目前仅有 CompactRegistry
-            return EnhancedServiceLoader.load(Registry.class, Objects.requireNonNull(registryType).name());
+            return EnhancedServiceLoader.load(Registry.class, Objects.requireNonNull(registryType).getName());
         }
         return null;
     }
