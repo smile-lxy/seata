@@ -156,8 +156,11 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
         throws TransactionException {
         // 开启全局事务(返回Global事务ID)
         response.setXid(core.begin(rpcContext.getApplicationId(), rpcContext.getTransactionServiceGroup(),
-            request.getTransactionName(), request.getTimeout())
-        );
+            request.getTransactionName(), request.getTimeout()));
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info("Begin new global transaction applicationId: {},transactionServiceGroup: {}, transactionName: {},timeout:{},xid:{}",
+                rpcContext.getApplicationId(), rpcContext.getTransactionServiceGroup(), request.getTransactionName(), request.getTimeout(), response.getXid());
+        }
     }
 
     @Override
@@ -226,7 +229,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
             return;
         }
         if (allSessions.size() > 0 && LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Transaction Timeout Check Begin: " + allSessions.size());
+            LOGGER.debug("Global transaction timeout check begin, size: {}", allSessions.size());
         }
         for (GlobalSession globalSession : allSessions) {
             if (LOGGER.isDebugEnabled()) {
@@ -258,7 +261,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
             if (!shouldTimeout) {
                 continue;
             }
-            LOGGER.info("Global transaction[" + globalSession.getXid() + "] is timeout and will be rolled back.");
+            LOGGER.info("Global transaction[{}] is timeout and will be rollback.", globalSession.getXid());
 
             // 添加生命周期更改监听器, 在超时检测后, 及时调用相应事件, 已备监听器作出响应处理
             globalSession.addSessionLifecycleListener(SessionHolder.getRetryRollbackingSessionManager());
@@ -267,7 +270,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
 
         }
         if (allSessions.size() > 0 && LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Transaction Timeout Check End. ");
+            LOGGER.debug("Global transaction timeout check end. ");
         }
 
     }
@@ -301,7 +304,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                      * Prevent thread safety issues
                      */
                     SessionHolder.getRetryRollbackingSessionManager().removeGlobalSession(rollbackingSession);
-                    LOGGER.error("GlobalSession rollback retry timeout and removed [{}]", rollbackingSession.getXid());
+                    LOGGER.info("Global transaction rollback retry timeout and has removed [{}]", rollbackingSession.getXid());
                     continue;
                 }
                 // 添加生命周期更改监听器, 在重试回滚前后, 及时调用相应事件, 已备监听器作出响应处理
@@ -309,8 +312,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                 // 执行事务回滚
                 core.doGlobalRollback(rollbackingSession, true);
             } catch (TransactionException ex) {
-                LOGGER.info("Failed to retry rollbacking [{}] {} {}", rollbackingSession.getXid(), ex.getCode(),
-                    ex.getMessage());
+                LOGGER.info("Failed to retry rollbacking [{}] {} {}", rollbackingSession.getXid(), ex.getCode(), ex.getMessage());
             }
         }
     }
@@ -333,7 +335,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                      * Prevent thread safety issues
                      */
                     SessionHolder.getRetryCommittingSessionManager().removeGlobalSession(committingSession);
-                    LOGGER.error("GlobalSession commit retry timeout and removed [{}]", committingSession.getXid());
+                    LOGGER.error("Global transaction commit retry timeout and has removed [{}]", committingSession.getXid());
                     continue;
                 }
                 // 添加生命周期更改监听器, 在重试提交前后, 及时调用相应事件, 已备监听器作出响应处理
@@ -341,20 +343,13 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                 // 执行事务提交
                 core.doGlobalCommit(committingSession, true);
             } catch (TransactionException ex) {
-                LOGGER.info("Failed to retry committing [{}] {} {}", committingSession.getXid(), ex.getCode(),
-                    ex.getMessage());
+                LOGGER.info("Failed to retry committing [{}] {} {}", committingSession.getXid(), ex.getCode(), ex.getMessage());
             }
         }
     }
 
     private boolean isRetryTimeout(long now, long timeout, long beginTime) {
-        /**
-         * Start timing when the session begin
-         */
-        if (timeout >= ALWAYS_RETRY_BOUNDARY && now - beginTime > timeout) {
-            return true;
-        }
-        return false;
+        return timeout >= ALWAYS_RETRY_BOUNDARY && now - beginTime > timeout;
     }
 
     /**
@@ -378,8 +373,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                 // 执行事务提交
                 core.doGlobalCommit(asyncCommittingSession, true);
             } catch (TransactionException ex) {
-                LOGGER.error("Failed to async committing [{}] {} {}", asyncCommittingSession.getXid(), ex.getCode(),
-                    ex.getMessage(), ex);
+                LOGGER.error("Failed to async committing [{}] {} {}", asyncCommittingSession.getXid(), ex.getCode(), ex.getMessage(), ex);
             }
         }
     }
@@ -409,7 +403,7 @@ public class DefaultCoordinator extends AbstractTCInboundHandler implements Tran
                 // 向各RM发送清除undo日志消息
                 messageSender.sendASyncRequest(channelEntry.getValue(), deleteRequest);
             } catch (Exception e) {
-                LOGGER.error("Failed to async delete undo log resourceId = " + resourceId);
+                LOGGER.error("Failed to async delete undo log resourceId = {}, exception: {}", resourceId, e.getMessage());
             }
         }
     }

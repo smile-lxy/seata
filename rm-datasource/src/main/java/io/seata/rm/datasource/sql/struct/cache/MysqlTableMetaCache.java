@@ -86,13 +86,11 @@ public class MysqlTableMetaCache extends AbstractTableMetaCache {
         // SQL语句 select * from ${tableName} limit 1
         String sql = "SELECT * FROM " + keywordChecker.checkAndReplace(tableName) + " LIMIT 1";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) { // 执行
+            ResultSet rs = stmt.executeQuery(sql)) {
             return resultSetMetaToSchema(rs.getMetaData(), connection.getMetaData());
-        }
-        catch (SQLException sqlEx) {
+        } catch (SQLException sqlEx) {
             throw sqlEx;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new SQLException(String.format("Failed to fetch schema of %s", tableName), e);
         }
     }

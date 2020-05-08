@@ -37,6 +37,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -109,16 +110,19 @@ public abstract class AbstractConnectionProxy implements Connection {
         // support oracle 10.2+
         PreparedStatement targetPreparedStatement = null;
         if (RootContext.inGlobalTransaction()) {
-            // 获取SQL识别器
-            SQLRecognizer sqlRecognizer = SQLVisitorFactory.get(sql, dbType);
-            if (sqlRecognizer != null && sqlRecognizer.getSQLType() == SQLType.INSERT) {
-                // 表名
-                String tableName = ColumnUtils.delEscape(sqlRecognizer.getTableName(), dbType);
-                // 获取对应表元信息工厂, 获取表元信息
-                TableMeta tableMeta = TableMetaCacheFactory.getTableMetaCache(dbType)
-                    .getTableMeta(getTargetConnection(), tableName,getDataSourceProxy().getResourceId());
-                // 预编译
-                targetPreparedStatement = getTargetConnection().prepareStatement(sql, new String[]{tableMeta.getPkName()});
+            List<SQLRecognizer> sqlRecognizers = SQLVisitorFactory.get(sql, dbType);
+            if (sqlRecognizers != null && sqlRecognizers.size() == 1) {
+                // SQL识别器
+                SQLRecognizer sqlRecognizer = sqlRecognizers.get(0);
+                if (sqlRecognizer != null && sqlRecognizer.getSQLType() == SQLType.INSERT) {
+                    // 表名
+                    String tableName = ColumnUtils.delEscape(sqlRecognizer.getTableName(), dbType);
+                    // 获取对应表元信息工厂, 获取表元信息
+                    TableMeta tableMeta = TableMetaCacheFactory.getTableMetaCache(dbType).getTableMeta(getTargetConnection(),
+                            tableName, getDataSourceProxy().getResourceId());
+                    // 预编译
+                    targetPreparedStatement = getTargetConnection().prepareStatement(sql, new String[]{tableMeta.getPkName()});
+                }
             }
         }
         if (targetPreparedStatement == null) {

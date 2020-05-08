@@ -118,7 +118,9 @@ public class ConnectionProxy extends AbstractConnectionProxy {
      * @throws SQLException the sql exception
      */
     public void checkLock(String lockKeys) throws SQLException {
-        // 检查全局锁
+        if (StringUtils.isBlank(lockKeys)) {
+            return;
+        }
         // Just check lock without requiring lock by now.
         try {
             boolean lockable = DefaultResourceManager.get()
@@ -163,7 +165,8 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     private void recognizeLockKeyConflictException(TransactionException te, String lockKeys) throws SQLException {
         if (te.getCode() == TransactionExceptionCode.LockKeyConflict) {
             // 锁key冲突
-            StringBuilder reasonBuilder = new StringBuilder("get global lock fail, xid:" + context.getXid());
+            StringBuilder reasonBuilder = new StringBuilder("get global lock fail, xid:");
+            reasonBuilder.append(context.getXid());
             if (StringUtils.isNotBlank(lockKeys)) {
                 reasonBuilder.append(", lockKeys:").append(lockKeys);
             }
@@ -241,12 +244,8 @@ public class ConnectionProxy extends AbstractConnectionProxy {
             // 识别异常, 准确抛出
             recognizeLockKeyConflictException(e, context.buildLockKeys());
         }
-
         try {
-            if (context.hasUndoLog()) {
-                // 需要记录Undo log, 获取对应Undo log管理器, 记录Undo log
-                UndoLogManagerFactory.getUndoLogManager(this.getDbType()).flushUndoLogs(this);
-            }
+            UndoLogManagerFactory.getUndoLogManager(this.getDbType()).flushUndoLogs(this);
             // 原始数据源连接提交事务
             targetConnection.commit();
         } catch (Throwable ex) {
@@ -267,11 +266,12 @@ public class ConnectionProxy extends AbstractConnectionProxy {
      * @throws TransactionException
      */
     private void register() throws TransactionException {
+        if (!context.hasUndoLog() || context.getLockKeysBuffer().isEmpty()) {
+            return;
+        }
         // 注册Branch事务(返回Branch事务ID)
-        Long branchId = DefaultResourceManager.get() // 向TC发送请求
-            .branchRegister(BranchType.AT, getDataSourceProxy().getResourceId(),
-                null, context.getXid(), null, context.buildLockKeys()
-            );
+        Long branchId = DefaultResourceManager.get().branchRegister(BranchType.AT, getDataSourceProxy().getResourceId(),
+            null, context.getXid(), null, context.buildLockKeys());
         context.setBranchId(branchId);
     }
 
@@ -302,6 +302,9 @@ public class ConnectionProxy extends AbstractConnectionProxy {
      * @throws SQLException
      */
     private void report(boolean commitDone) throws SQLException {
+        if (context.getBranchId() == null) {
+            return;
+        }
         // 重试次数
         int retry = REPORT_RETRY_COUNT;
         while (retry > 0) {

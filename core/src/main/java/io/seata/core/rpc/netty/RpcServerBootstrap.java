@@ -129,7 +129,7 @@ public class RpcServerBootstrap implements RemotingServer {
     public void start() {
         this.serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupWorker)
             // Channel选择器
-            .channel(nettyServerConfig.SERVER_CHANNEL_CLAZZ)
+            .channel(NettyServerConfig.SERVER_CHANNEL_CLAZZ)
             // 服务器请求处理线程全满时, 临时存放已完成三次握手的请求的队列最大大小
             .option(ChannelOption.SO_BACKLOG, nettyServerConfig.getSoBackLogSize())
             // 是否允许公用端口

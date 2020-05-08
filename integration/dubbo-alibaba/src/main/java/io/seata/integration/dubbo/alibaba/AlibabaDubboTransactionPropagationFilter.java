@@ -22,8 +22,10 @@ import com.alibaba.dubbo.rpc.Invoker;
 import com.alibaba.dubbo.rpc.Result;
 import com.alibaba.dubbo.rpc.RpcContext;
 import com.alibaba.dubbo.rpc.RpcException;
+import io.seata.common.util.StringUtils;
 import io.seata.core.context.RootContext;
 import io.seata.core.constants.DubboConstants;
+import io.seata.core.model.BranchType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +48,11 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
         // Consumer 调用 Provider时有
         // 事务ID
         String xid = RootContext.getXID();
-        // 事务拦截类型
-        String xidInterceptorType = RootContext.getXIDInterceptorType();
+        String branchType = RootContext.getBranchType();
 
         // Provider 被 Consumer 调用时有
         String rpcXid = getRpcXid();
-        String rpcXidInterceptorType = RpcContext.getContext().getAttachment(RootContext.KEY_XID_INTERCEPTOR_TYPE);
+        String rpcBranchType = RpcContext.getContext().getAttachment(RootContext.KEY_BRANCH_TYPE);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("xid in RootContext[{}] xid in RpcContext[{}]", xid, rpcXid);
         }
@@ -59,16 +60,18 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
         if (xid != null) {
             // RPC上下文设置参数
             RpcContext.getContext().setAttachment(RootContext.KEY_XID, xid);
-            RpcContext.getContext().setAttachment(RootContext.KEY_XID_INTERCEPTOR_TYPE, xidInterceptorType);
+            RpcContext.getContext().setAttachment(RootContext.KEY_BRANCH_TYPE, branchType);
         } else {
             if (rpcXid != null) {
                 // 绑定RPC事务
                 RootContext.bind(rpcXid);
-                // 绑定RPC事务拦截类型
-                RootContext.bindInterceptorType(rpcXidInterceptorType);
+                if (StringUtils.equals(BranchType.TCC.name(), rpcBranchType)) {
+                    // 绑定RPC事务拦截类型
+                    RootContext.bindBranchType(BranchType.TCC);
+                }
                 bind = true;
                 if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("bind[{}] interceptorType[{}] to RootContext", rpcXid, rpcXidInterceptorType);
+                    LOGGER.debug("bind xid [{}] branchType [{}] to RootContext", rpcXid, rpcBranchType != null ? rpcBranchType : "AT");
                 }
             }
         }
@@ -77,21 +80,24 @@ public class AlibabaDubboTransactionPropagationFilter implements Filter {
             return invoker.invoke(invocation);
         } finally {
             if (bind) {
-                // 解绑拦截类型
-                String unbindInterceptorType = RootContext.unbindInterceptorType();
-                // 解绑事务
                 String unbindXid = RootContext.unbind();
+                String previousBranchType = RootContext.getBranchType();
+                if (StringUtils.equals(BranchType.TCC.name(), previousBranchType)) {
+                    RootContext.unbindBranchType();
+                }
                 if (LOGGER.isDebugEnabled()) {
-                    LOGGER.debug("unbind[{}] interceptorType[{}] from RootContext", unbindXid, unbindInterceptorType);
+                    LOGGER.debug("unbind xid [{}] branchType [{}] from RootContext", unbindXid, previousBranchType != null ? previousBranchType : "AT");
                 }
                 if (!rpcXid.equalsIgnoreCase(unbindXid)) {
-                    LOGGER.warn("xid in change during RPC from {} to {}, xidInterceptorType from {} to {} ",
-                        rpcXid, unbindXid, rpcXidInterceptorType, unbindInterceptorType);
+                    LOGGER.warn("xid in change during RPC from {} to {},branchType from {} to {}", rpcXid, unbindXid,
+                            rpcBranchType != null ? rpcBranchType : "AT", previousBranchType != null ? previousBranchType : "AT");
                     if (unbindXid != null) {
                         RootContext.bind(unbindXid);
-                        RootContext.bindInterceptorType(unbindInterceptorType);
-                        LOGGER.warn("bind [{}] interceptorType[{}] back to RootContext",
-                            unbindXid, unbindInterceptorType);
+                        LOGGER.warn("bind xid [{}] back to RootContext", unbindXid);
+                        if (StringUtils.equals(BranchType.TCC.name(), previousBranchType)) {
+                            RootContext.bindBranchType(BranchType.TCC);
+                            LOGGER.warn("bind branchType [{}] back to RootContext", previousBranchType != null ? previousBranchType : "AT");
+                        }
                     }
                 }
             }

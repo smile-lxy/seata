@@ -408,7 +408,6 @@ public class EnhancedServiceLoader {
         }
 
         private List<Class> loadAllExtensionClass(ClassLoader loader) {
-            List<Class> result;
             List<ExtensionDefinition> definitions = definitionsHolder.get();
             if (definitions == null) {
                 synchronized (definitionsHolder) {

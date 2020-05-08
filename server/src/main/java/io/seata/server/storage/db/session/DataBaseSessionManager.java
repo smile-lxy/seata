@@ -25,7 +25,6 @@ import io.seata.common.util.StringUtils;
 import io.seata.core.exception.TransactionException;
 import io.seata.core.model.BranchStatus;
 import io.seata.core.model.GlobalStatus;
-import io.seata.server.UUIDGenerator;
 import io.seata.server.session.AbstractSessionManager;
 import io.seata.server.session.BranchSession;
 import io.seata.server.session.GlobalSession;
@@ -212,12 +211,5 @@ public class DataBaseSessionManager extends AbstractSessionManager
 
     @Override
     public void reload() {
-        // 最大事务ID(transId or branchId)
-        long maxSessionId = transactionStoreManager.getCurrentMaxSessionId();
-
-        // 为防止生成重复ID, CAS重新设置UUID因子
-        if (maxSessionId > UUIDGenerator.getCurrentUUID()) {
-            UUIDGenerator.setUUID(UUIDGenerator.getCurrentUUID(), maxSessionId);
-        }
     }
 }

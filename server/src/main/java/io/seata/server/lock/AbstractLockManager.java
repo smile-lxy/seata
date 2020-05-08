@@ -76,7 +76,11 @@ public abstract class AbstractLockManager implements LockManager {
 
     @Override
     public boolean isLockable(String xid, String resourceId, String lockKey) throws TransactionException {
-        List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid); // 收集行锁
+        if (StringUtils.isBlank(lockKey)) {
+            // no lock
+            return true;
+        }
+        List<RowLock> locks = collectRowLocks(lockKey, resourceId, xid);
         try {
             // 获取相应处理器, 判断是否已锁
             return getLocker().isLockable(locks);

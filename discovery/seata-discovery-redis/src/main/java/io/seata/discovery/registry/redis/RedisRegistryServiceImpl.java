@@ -209,10 +209,11 @@ public class RedisRegistryServiceImpl implements RegistryService<RedisListener> 
         }
         // 监听器缓存集合中不存在, 添加监听器
         if (!LISTENER_SERVICE_MAP.containsKey(clusterName)) {
+            String redisRegistryKey = REDIS_FILEKEY_PREFIX + clusterName;
             Map<String, String> instances;
             try (Jedis jedis = jedisPool.getResource()) {
                 // 实例
-                instances = jedis.hgetAll(getRedisRegistryKey());
+                instances = jedis.hgetAll(redisRegistryKey);
             }
             if (null != instances && !instances.isEmpty()) {
                 // 组装, 缓存

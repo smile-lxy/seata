@@ -114,7 +114,7 @@ public class RpcServer extends AbstractRpcRemotingServer {
      */
     @Override
     public Object sendSyncRequest(String resourceId, String clientId, Object message,
-                                  long timeout) throws TimeoutException {
+        long timeout) throws TimeoutException {
         // 获取对应Channel
         Channel clientChannel = ChannelManager.getChannel(resourceId, clientId);
         if (clientChannel == null) {

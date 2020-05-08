@@ -16,6 +16,7 @@
 package io.seata.spring.tcc;
 
 import io.seata.common.Constants;
+import io.seata.common.util.StringUtils;
 import io.seata.core.context.RootContext;
 import io.seata.core.model.BranchType;
 import io.seata.rm.tcc.api.TwoPhaseBusinessAction;
@@ -78,10 +79,9 @@ public class TccActionInterceptor implements MethodInterceptor {
         if (businessAction != null) {
             //save the xid 事务ID
             String xid = RootContext.getXID();
-            //clear the context 解绑事务
-            RootContext.unbind();
-            // 绑定接口层事务
-            RootContext.bindInterceptorType(xid, BranchType.TCC);
+            //save the previous branchType
+            String previousBranchType = RootContext.getBranchType();
+            RootContext.bindBranchType(BranchType.TCC);
             try {
                 // 方法参数
                 Object[] methodArgs = invocation.getArguments();
@@ -90,12 +90,14 @@ public class TccActionInterceptor implements MethodInterceptor {
                     .proceed(method, methodArgs, xid, businessAction, invocation::proceed);
                 //return the final result
                 return ret.get(Constants.TCC_METHOD_RESULT);
-            } finally {
+            }
+            finally {
                 // 解除接口层事务
-                //recovery the context
-                RootContext.unbindInterceptorType();
-                // 绑定全局事务
-                RootContext.bind(xid);
+                RootContext.unbindBranchType();
+                //restore the TCC branchType if exists
+                if (StringUtils.equals(BranchType.TCC.name(), previousBranchType)) {
+                    RootContext.bindBranchType(BranchType.TCC);
+                }
             }
         }
         // 没有事务, 执行原始方法

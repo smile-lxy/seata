@@ -50,7 +50,7 @@ public class MySQLUndoLogManager extends AbstractUndoLogManager {
             + ClientTableColumnsName.UNDO_LOG_CONTEXT + ", " + ClientTableColumnsName.UNDO_LOG_ROLLBACK_INFO + ", "
             + ClientTableColumnsName.UNDO_LOG_LOG_STATUS + ", " + ClientTableColumnsName.UNDO_LOG_LOG_CREATED + ", "
             + ClientTableColumnsName.UNDO_LOG_LOG_MODIFIED + ")" +
-            " VALUES (?, ?, ?, ?, ?, now(), now())";
+            " VALUES (?, ?, ?, ?, ?, now(6), now(6))";
 
     /**
      * delete from undo_log log_created <= ? limit ?
